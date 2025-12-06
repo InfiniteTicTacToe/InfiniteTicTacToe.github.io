@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Infinite Tic-Tac-Toe</title>
+<style>
+  * { box-sizing: border-box; }
+  html,body{height:100%;margin:0;overflow:hidden;touch-action:none}
+  body{display:flex;flex-direction:column;font-family:'Segoe UI', Arial, sans-serif;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:#fff}
+  
+  .screen { display:none; flex-direction:column; align-items:center; justify-content:center; height:100%; width:100%; position:absolute; top:0; left:0; }
+  .screen.active { display:flex; }
+  
+  #startMenu { background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  #startMenu h1 { font-size:2.5rem; margin-bottom:0.5rem; text-shadow:2px 2px 4px rgba(0,0,0,0.3); }
+  #startMenu .subtitle { font-size:1rem; opacity:0.8; margin-bottom:2rem; }
+  
+  .menu-btn { 
+    padding:16px 48px; margin:10px; font-size:1.2rem; border:none; border-radius:12px; 
+    cursor:pointer; transition:all 0.3s; font-weight:600; min-width:220px;
+  }
+  .menu-btn.primary { background:#fff; color:#667eea; }
+  .menu-btn.primary:hover { transform:scale(1.05); box-shadow:0 8px 25px rgba(0,0,0,0.2); }
+  .menu-btn.secondary { background:rgba(255,255,255,0.2); color:#fff; border:2px solid rgba(255,255,255,0.5); }
+  .menu-btn.secondary:hover { background:rgba(255,255,255,0.3); }
+  .menu-btn.danger { background:#e74c3c; color:#fff; }
+  .menu-btn.danger:hover { background:#c0392b; }
+  .menu-btn.small { padding:10px 24px; font-size:1rem; min-width:auto; }
+  
+  #waitingRoom { background:linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+  #waitingRoom h2 { margin-bottom:1.5rem; }
+  .room-container { background:rgba(255,255,255,0.15); border-radius:16px; padding:24px; max-width:400px; width:90%; }
+  .room-list { max-height:250px; overflow-y:auto; margin:16px 0; }
+  .room-item { 
+    background:rgba(255,255,255,0.2); padding:12px 16px; margin:8px 0; border-radius:8px; 
+    display:flex; justify-content:space-between; align-items:center; 
+  }
+  .room-item button { padding:8px 16px; border:none; border-radius:6px; background:#fff; color:#11998e; cursor:pointer; font-weight:600; }
+  .room-item button:hover { background:#f0f0f0; }
+  .no-rooms { text-align:center; opacity:0.7; padding:20px; }
+  
+  .input-group { margin:16px 0; width:100%; }
+  .input-group label { display:block; margin-bottom:8px; font-weight:600; }
+  .input-group input { 
+    width:100%; padding:12px 16px; border:none; border-radius:8px; font-size:1rem; 
+    background:rgba(255,255,255,0.9); color:#333;
+  }
+  
+  .hosting-info { text-align:center; padding:20px; }
+  .hosting-info .room-code { font-size:2rem; font-weight:700; letter-spacing:4px; margin:16px 0; }
+  .hosting-info .waiting-text { opacity:0.8; }
+  .spinner { display:inline-block; width:20px; height:20px; border:3px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; margin-left:10px; vertical-align:middle; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  
+  #gameScreen { background:#f5f5f5; }
+  #topbar{height:48px;display:flex;align-items:center;padding:6px 12px;gap:12px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.1);width:100%;position:absolute;top:0;left:0;z-index:10}
+  #scorebox{background:#ebebeb;padding:6px 10px;border-radius:6px;display:flex;gap:16px;align-items:center}
+  #scoreX{color:#dc3737;font-weight:700}
+  #scoreO{color:#2d63e0;font-weight:700}
+  .topbar-btn{padding:8px 14px;border-radius:6px;background:#e0e0e0;border:0;cursor:pointer;font-size:14px;color:#333}
+  .topbar-btn:hover{background:#d0d0d0}
+  .topbar-btn.quit{background:#e74c3c;color:#fff}
+  .topbar-btn.quit:hover{background:#c0392b}
+  #canvasWrap{flex:1;position:relative;touch-action:none;margin-top:48px;height:calc(100% - 48px)}
+  canvas{display:block;background:#fff;touch-action:none}
+  #hint{position:absolute;left:8px;bottom:46px;color:#333;background:rgba(255,255,255,0.85);padding:6px 8px;border-radius:6px;font-size:12px;max-width:calc(100% - 24px)}
+  #turnDisplay{position:absolute;left:8px;bottom:8px;font-weight:700;padding:6px 8px;border-radius:6px;color:#333}
+  #opponentInfo{position:absolute;right:8px;bottom:8px;background:rgba(255,255,255,0.9);padding:6px 12px;border-radius:6px;font-size:13px;color:#333}
+  
+  .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:100; }
+  .overlay.active { display:flex; }
+  .overlay-content { background:#fff; color:#333; padding:32px; border-radius:16px; text-align:center; max-width:90%; }
+  .overlay-content h2 { margin:0 0 16px 0; }
+  .overlay-content .buttons { display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap; }
+  
+  @media (max-width: 600px) {
+    #startMenu h1 { font-size:1.8rem; }
+    .menu-btn { padding:14px 36px; font-size:1rem; min-width:180px; }
+    #topbar{padding:4px 8px;gap:8px}
+    #scorebox{padding:4px 8px;gap:10px;font-size:14px}
+    #hint{font-size:11px;bottom:42px}
+  }
+</style>
+</head>
+<body>
+  <div id="startMenu" class="screen active">
+    <h1>Infinite Tic-Tac-Toe</h1>
+    <div class="subtitle">Get 5 in a row to win!</div>
+    <button class="menu-btn primary" onclick="startSingleplayer()">Singleplayer</button>
+    <button class="menu-btn secondary" onclick="showWaitingRoom()">Multiplayer</button>
+  </div>
+
+  <div id="waitingRoom" class="screen">
+    <h2>Multiplayer</h2>
+    <div class="room-container">
+      <div id="lobbyView">
+        <div class="input-group">
+          <label>Your Name</label>
+          <input type="text" id="playerName" placeholder="Enter your name" maxlength="20" value="Player">
+        </div>
+        <button class="menu-btn primary" style="width:100%;margin:16px 0 8px 0" onclick="hostGame()">Host Game</button>
+        <div style="text-align:center;margin:16px 0;opacity:0.7">- or join a game -</div>
+        <div class="room-list" id="roomList">
+          <div class="no-rooms">Looking for games...</div>
+        </div>
+        <button class="menu-btn secondary" style="width:100%;margin-top:8px" onclick="backToMenu()">Back</button>
+      </div>
+      
+      <div id="hostingView" style="display:none">
+        <div class="hosting-info">
+          <div>Your Room Code:</div>
+          <div class="room-code" id="roomCode">----</div>
+          <div class="waiting-text">Waiting for opponent<span class="spinner"></span></div>
+        </div>
+        <button class="menu-btn danger" style="width:100%;margin-top:20px" onclick="cancelHost()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameScreen" class="screen">
+    <div id="topbar">
+      <div id="scorebox">
+        <div id="scoreX">X : 0</div>
+        <div id="scoreO">O : 0</div>
+      </div>
+      <button class="topbar-btn" id="newGameBtn" onclick="handleNewGame()">New Game</button>
+      <div style="flex:1"></div>
+      <div style="font-size:13px;color:#333">Zoom: <span id="zoomLabel">1.00x</span></div>
+      <button class="topbar-btn quit" onclick="quitGame()">Quit</button>
+    </div>
+
+    <div id="canvasWrap">
+      <canvas id="c"></canvas>
+      <div id="hint">
+        <span class="desktop-hint">Right-drag pan | Wheel zoom | Left-click place | Click arrow teleport</span>
+        <span class="mobile-hint">Hold+drag pan | Double-tap place | Pinch zoom | Tap arrow teleport</span>
+      </div>
+      <div id="turnDisplay"></div>
+      <div id="opponentInfo" style="display:none"></div>
+    </div>
+  </div>
+
+  <div id="gameOverOverlay" class="overlay">
+    <div class="overlay-content">
+      <h2 id="gameOverText">Game Over!</h2>
+      <div class="buttons">
+        <button class="menu-btn primary small" onclick="handleRematch()">Play Again</button>
+        <button class="menu-btn secondary small" onclick="quitGame()">Quit</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="opponentLeftOverlay" class="overlay">
+    <div class="overlay-content">
+      <h2>Opponent Left</h2>
+      <p>Your opponent has disconnected.</p>
+      <div class="buttons">
+        <button class="menu-btn primary small" onclick="backToMenu()">Back to Menu</button>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.4.3/decimal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+
+<script>
+let gameMode = null;
+let socket = null;
+let mySymbol = null;
+let opponentName = null;
+let isMyTurn = false;
+let currentRoomId = null;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let WIDTH, HEIGHT;
+function resizeCanvas() {
+  WIDTH = window.innerWidth;
+  HEIGHT = window.innerHeight - 48;
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+}
+resizeCanvas();
+
+const CELL_BASE = 48;
+let ZOOM = new Decimal(1);
+const ZOOM_MIN = new Decimal(0.1);
+const ZOOM_MAX = new Decimal(5);
+
+const ARROW_MIN = 10;
+const ARROW_MAX = 150;
+const ARROW_SCALE_DIST = 20.0;
+
+const COLORS = {
+  grid: '#c8c8c8',
+  bg: '#ffffff',
+  X: '#dc3737',
+  O: '#2d63e0',
+  hover: '#50c970',
+  win: '#0aa050',
+  uiBg: '#ebebeb'
+};
+
+let board = new Map();
+let starter = 'X';
+let current = starter;
+let score = { X: 0, O: 0 };
+
+let camera_x = new Decimal(WIDTH / 2);
+let camera_y = new Decimal(HEIGHT / 2);
+
+let winner_line = [];
+let game_over = false;
+
+let arrow_hit_map = new Map();
+
+const scoreXEl = document.getElementById('scoreX');
+const scoreOEl = document.getElementById('scoreO');
+const zoomLabel = document.getElementById('zoomLabel');
+const turnDisplay = document.getElementById('turnDisplay');
+const hintEl = document.getElementById('hint');
+const opponentInfo = document.getElementById('opponentInfo');
+
+Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
+
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isTouchDevice) {
+  hintEl.querySelector('.desktop-hint').style.display = 'none';
+} else {
+  hintEl.querySelector('.mobile-hint').style.display = 'none';
+}
+
+function cellSize() { return ZOOM.mul(CELL_BASE); }
+function gridKey(gx, gy){ return gx + ',' + gy; }
+
+function gridToScreenTopLeftDec(gx, gy){
+  const s = cellSize();
+  return { x: new Decimal(gx).mul(s).plus(camera_x), y: new Decimal(gy).mul(s).plus(camera_y) };
+}
+function gridToScreenCenterDec(gx, gy){
+  const tl = gridToScreenTopLeftDec(gx, gy);
+  const s = cellSize();
+  return { x: tl.x.plus(s.div(2)), y: tl.y.plus(s.div(2)) };
+}
+function screenToGridDec(mx, my){
+  const s = cellSize();
+  const gx = Decimal.floor(new Decimal(mx).minus(camera_x).div(s));
+  const gy = Decimal.floor(new Decimal(my).minus(camera_y).div(s));
+  return { gx: gx.toNumber(), gy: gy.toNumber() };
+}
+
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+const directions = [[1,0],[0,1],[1,1],[1,-1]];
+function checkWinAndLine(gx, gy, player){
+  for (let d=0; d<directions.length; d++){
+    const [dx,dy] = directions[d];
+    let line = [[gx,gy]];
+    let cx = gx+dx, cy = gy+dy;
+    while(board.get(gridKey(cx,cy)) === player){ line.push([cx,cy]); cx += dx; cy += dy; }
+    cx = gx-dx; cy = gy-dy;
+    while(board.get(gridKey(cx,cy)) === player){ line.push([cx,cy]); cx -= dx; cy -= dy; }
+    if (line.length >= 5){
+      line.sort((a,b) => (a[0]*dx + a[1]*dy) - (b[0]*dx + b[1]*dy));
+      winner_line = [ {gx: line[0][0], gy: line[0][1]}, {gx: line[line.length-1][0], gy: line[line.length-1][1]} ];
+      return true;
+    }
+  }
+  return false;
+}
+
+function toNum(dec){
+  if (Decimal.isDecimal(dec)) return Number(dec.toFixed(8));
+  return Number(new Decimal(dec).toFixed(8));
+}
+
+function drawGrid(){
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0,0,WIDTH,HEIGHT);
+  ctx.strokeStyle = COLORS.grid;
+  ctx.lineWidth = 1;
+
+  const sDec = cellSize();
+  const gx0 = Math.floor(toNum(Decimal.floor(new Decimal(-camera_x).minus(sDec).div(sDec)))) - 1;
+  const gx1 = Math.floor(toNum(Decimal.floor(new Decimal(WIDTH).minus(camera_x).div(sDec)))) + 1;
+  const gy0 = Math.floor(toNum(Decimal.floor(new Decimal(-camera_y).minus(sDec).div(sDec)))) - 1;
+  const gy1 = Math.floor(toNum(Decimal.floor(new Decimal(HEIGHT).minus(camera_y).div(sDec)))) + 1;
+
+  ctx.beginPath();
+  for (let gx = gx0; gx <= gx1; gx++){
+    const x = toNum(new Decimal(gx).mul(sDec).plus(camera_x));
+    ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT);
+  }
+  for (let gy = gy0; gy <= gy1; gy++){
+    const y = toNum(new Decimal(gy).mul(sDec).plus(camera_y));
+    ctx.moveTo(0, y); ctx.lineTo(WIDTH, y);
+  }
+  ctx.stroke();
+}
+
+function drawPieces(){
+  const s = toNum(cellSize());
+  for (const [key, p] of board.entries()){
+    const [gx,gy] = key.split(',').map(Number);
+    const center = gridToScreenCenterDec(gx, gy);
+    const cx = toNum(center.x), cy = toNum(center.y);
+    if (cx < -2000 || cx > WIDTH + 2000 || cy < -2000 || cy > HEIGHT + 2000) continue;
+
+    if (p === 'X'){
+      ctx.strokeStyle = COLORS.X;
+      ctx.lineWidth = Math.max(1, Math.round(3 * toNum(ZOOM)));
+      const half = Math.max(6, (s/2) * 0.45);
+      ctx.beginPath();
+      ctx.moveTo(cx - half, cy - half);
+      ctx.lineTo(cx + half, cy + half);
+      ctx.moveTo(cx - half, cy + half);
+      ctx.lineTo(cx + half, cy - half);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = COLORS.O;
+      ctx.lineWidth = Math.max(1, Math.round(3 * toNum(ZOOM)));
+      const radius = Math.max(4, Math.round((s/2) * 0.45));
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawHover(mx, my){
+  if (game_over || mx === null || my === null) return;
+  if (gameMode === 'multiplayer' && !isMyTurn) return;
+  const {gx,gy} = screenToGridDec(mx, my);
+  const tl = gridToScreenTopLeftDec(gx, gy);
+  const x = toNum(tl.x), y = toNum(tl.y);
+  const s = toNum(cellSize());
+  ctx.strokeStyle = COLORS.hover;
+  ctx.lineWidth = Math.max(1, Math.round(3 * toNum(ZOOM)));
+  ctx.strokeRect(x+1, y+1, s-2, s-2);
+}
+
+function drawWinnerLine(){
+  if (!winner_line || winner_line.length < 2) return;
+  const p1 = gridToScreenCenterDec(winner_line[0].gx, winner_line[0].gy);
+  const p2 = gridToScreenCenterDec(winner_line[1].gx, winner_line[1].gy);
+  ctx.strokeStyle = COLORS.win;
+  ctx.lineWidth = Math.max(3, Math.round(6 * toNum(ZOOM)));
+  ctx.beginPath();
+  ctx.moveTo(toNum(p1.x), toNum(p1.y));
+  ctx.lineTo(toNum(p2.x), toNum(p2.y));
+  ctx.stroke();
+}
+
+function computeAndDrawArrows(){
+  arrow_hit_map.clear();
+  const cx = WIDTH/2, cy = HEIGHT/2;
+  const s = toNum(cellSize());
+  for (const [key, player] of board.entries()){
+    const [gx,gy] = key.split(',').map(Number);
+    const center = gridToScreenCenterDec(gx, gy);
+    const px = toNum(center.x), py = toNum(center.y);
+    if (px >= 0 && px <= WIDTH && py >= 0 && py <= HEIGHT) continue;
+    const dx = px - cx, dy = py - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist === 0) continue;
+    const angle = Math.atan2(dy, dx);
+    let tCandidates = [];
+    if (dx !== 0){
+      let t = (0 - cx) / dx; if (t>0) tCandidates.push(t);
+      t = (WIDTH - cx) / dx; if (t>0) tCandidates.push(t);
+    }
+    if (dy !== 0){
+      let t = (0 - cy) / dy; if (t>0) tCandidates.push(t);
+      t = (HEIGHT - cy) / dy; if (t>0) tCandidates.push(t);
+    }
+    if (tCandidates.length === 0) continue;
+    const tmin = Math.min(...tCandidates);
+    const ex = cx + dx * tmin;
+    const ey = cy + dy * tmin;
+    const cellDist = dist / Math.max(1.0, s);
+    let size = ARROW_MAX * (1.0 / (1.0 + (cellDist / ARROW_SCALE_DIST)));
+    size = clamp(size, ARROW_MIN, ARROW_MAX);
+    const tip = {x: ex, y: ey};
+    const left = {x: ex - size * Math.cos(angle - 0.35), y: ey - size * Math.sin(angle - 0.35)};
+    const right = {x: ex - size * Math.cos(angle + 0.35), y: ey - size * Math.sin(angle + 0.35)};
+    ctx.fillStyle = (player === 'X') ? COLORS.X : COLORS.O;
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.closePath();
+    ctx.fill();
+    arrow_hit_map.set(key, {x: tip.x, y: tip.y, r: Math.max(12, Math.round(size * 0.5))});
+  }
+}
+
+function updateUI(){
+  scoreXEl.textContent = `X : ${score.X}`;
+  scoreOEl.textContent = `O : ${score.O}`;
+  zoomLabel.textContent = `${toNum(ZOOM).toFixed(2)}x`;
+  turnDisplay.style.background = 'rgba(255,255,255,0.9)';
+  turnDisplay.style.color = (current === 'X') ? COLORS.X : COLORS.O;
+  
+  if (gameMode === 'multiplayer') {
+    if (isMyTurn) {
+      turnDisplay.textContent = `Your turn (${mySymbol})`;
+    } else {
+      turnDisplay.textContent = `${opponentName}'s turn`;
+    }
+  } else {
+    turnDisplay.textContent = `${current}'s turn`;
+  }
+}
+
+function resetGame(){
+  board.clear();
+  winner_line = [];
+  game_over = false;
+  current = starter;
+  camera_x = new Decimal(WIDTH / 2);
+  camera_y = new Decimal(HEIGHT / 2);
+  ZOOM = new Decimal(1);
+}
+
+function newGame(byWin=null){
+  board.clear();
+  winner_line = [];
+  game_over = false;
+  if (byWin === 'X' || byWin === 'O'){
+    starter = (byWin === 'X') ? 'O' : 'X';
+  }
+  current = starter;
+}
+
+function placePiece(mx, my) {
+  if (game_over) return false;
+  if (gameMode === 'multiplayer' && !isMyTurn) return false;
+  
+  const {gx,gy} = screenToGridDec(mx, my);
+  const key = gridKey(gx,gy);
+  
+  if (board.has(key)) return false;
+  
+  if (gameMode === 'multiplayer') {
+    socket.emit('make_move', { gx, gy });
+    return true;
+  } else {
+    board.set(key, current);
+    if (checkWinAndLine(gx, gy, current)){
+      score[current] += 1;
+      game_over = true;
+      starter = (current === 'X') ? 'O' : 'X';
+      showGameOver(current);
+    }
+    if (!game_over) current = (current === 'X') ? 'O' : 'X';
+    return true;
+  }
+}
+
+function checkArrowHit(mx, my) {
+  for (const [key, val] of arrow_hit_map.entries()){
+    const dx = mx - val.x, dy = my - val.y;
+    if (dx*dx + dy*dy <= val.r * val.r) return key;
+  }
+  return null;
+}
+
+function teleportToCell(key) {
+  const [gx,gy] = key.split(',').map(Number);
+  const s = cellSize();
+  camera_x = new Decimal(WIDTH/2).minus(new Decimal(gx).mul(s).plus(s.div(2)));
+  camera_y = new Decimal(HEIGHT/2).minus(new Decimal(gy).mul(s).plus(s.div(2)));
+}
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+let isRightDown = false;
+let dragging = false;
+let dragStart = null;
+
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 2){
+    isRightDown = true;
+    dragging = true;
+    dragStart = {x: e.clientX, y: e.clientY};
+  } else if (e.button === 0){
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const clickedArrow = checkArrowHit(mx, my);
+    if (clickedArrow){ teleportToCell(clickedArrow); return; }
+    placePiece(mx, my);
+  }
+});
+
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 2){ isRightDown = false; dragging = false; }
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (dragging && isRightDown && dragStart){
+    camera_x = camera_x.plus(e.clientX - dragStart.x);
+    camera_y = camera_y.plus(e.clientY - dragStart.y);
+    dragStart = {x: e.clientX, y: e.clientY};
+  }
+});
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const factor = 1 + 0.12 * (-Math.sign(e.deltaY));
+  const oldZoom = ZOOM;
+  ZOOM = Decimal.max(ZOOM_MIN, Decimal.min(ZOOM_MAX, ZOOM.mul(factor)));
+  camera_x = new Decimal(mx).minus(new Decimal(mx).minus(camera_x).div(oldZoom).mul(ZOOM));
+  camera_y = new Decimal(my).minus(new Decimal(my).minus(camera_y).div(oldZoom).mul(ZOOM));
+  updateUI();
+}, { passive: false });
+
+let touchState = { lastTapTime:0, lastTapX:0, lastTapY:0, isDragging:false, dragStartX:0, dragStartY:0, initialPinchDist:0, initialZoom:null, pinchCenterX:0, pinchCenterY:0, hasMoved:false };
+const DOUBLE_TAP_DELAY = 300, DOUBLE_TAP_DISTANCE = 30, DRAG_THRESHOLD = 10;
+
+function getTouchPos(touch) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const pos = getTouchPos(e.touches[0]);
+    touchState.dragStartX = pos.x;
+    touchState.dragStartY = pos.y;
+    touchState.hasMoved = false;
+    canvas._mouseX = pos.x;
+    canvas._mouseY = pos.y;
+  } else if (e.touches.length === 2) {
+    touchState.initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    touchState.initialZoom = ZOOM;
+    const rect = canvas.getBoundingClientRect();
+    touchState.pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
+    touchState.pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const pos = getTouchPos(e.touches[0]);
+    const dist = Math.hypot(pos.x - touchState.dragStartX, pos.y - touchState.dragStartY);
+    if (dist > DRAG_THRESHOLD) touchState.hasMoved = true;
+    if (touchState.hasMoved) {
+      camera_x = camera_x.plus(pos.x - touchState.dragStartX);
+      camera_y = camera_y.plus(pos.y - touchState.dragStartY);
+      touchState.dragStartX = pos.x;
+      touchState.dragStartY = pos.y;
+    }
+    canvas._mouseX = pos.x;
+    canvas._mouseY = pos.y;
+  } else if (e.touches.length === 2) {
+    touchState.hasMoved = true;
+    const newDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    if (touchState.initialPinchDist > 0 && touchState.initialZoom) {
+      const oldZoom = ZOOM;
+      ZOOM = Decimal.max(ZOOM_MIN, Decimal.min(ZOOM_MAX, touchState.initialZoom.mul(newDist / touchState.initialPinchDist)));
+      camera_x = new Decimal(touchState.pinchCenterX).minus(new Decimal(touchState.pinchCenterX).minus(camera_x).div(oldZoom).mul(ZOOM));
+      camera_y = new Decimal(touchState.pinchCenterY).minus(new Decimal(touchState.pinchCenterY).minus(camera_y).div(oldZoom).mul(ZOOM));
+      updateUI();
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 0 && !touchState.hasMoved) {
+    const pos = { x: touchState.dragStartX, y: touchState.dragStartY };
+    const clickedArrow = checkArrowHit(pos.x, pos.y);
+    if (clickedArrow) { teleportToCell(clickedArrow); touchState.lastTapTime = 0; return; }
+    
+    const now = Date.now();
+    if (now - touchState.lastTapTime < DOUBLE_TAP_DELAY && Math.hypot(pos.x - touchState.lastTapX, pos.y - touchState.lastTapY) < DOUBLE_TAP_DISTANCE) {
+      placePiece(pos.x, pos.y);
+      touchState.lastTapTime = 0;
+    } else {
+      touchState.lastTapTime = now;
+      touchState.lastTapX = pos.x;
+      touchState.lastTapY = pos.y;
+    }
+  }
+  if (e.touches.length < 2) { touchState.initialPinchDist = 0; touchState.initialZoom = null; }
+  if (e.touches.length === 1) {
+    const pos = getTouchPos(e.touches[0]);
+    touchState.dragStartX = pos.x;
+    touchState.dragStartY = pos.y;
+    touchState.hasMoved = false;
+  }
+}, { passive: false });
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  canvas._mouseX = e.clientX - rect.left;
+  canvas._mouseY = e.clientY - rect.top;
+});
+
+window.addEventListener('resize', () => { resizeCanvas(); updateUI(); });
+
+function loop(){
+  if (document.getElementById('gameScreen').classList.contains('active')) {
+    drawGrid();
+    drawPieces();
+    drawHover(canvas._mouseX || null, canvas._mouseY || null);
+    drawWinnerLine();
+    computeAndDrawArrows();
+    updateUI();
+  }
+  requestAnimationFrame(loop);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startSingleplayer() {
+  gameMode = 'singleplayer';
+  mySymbol = null;
+  opponentName = null;
+  isMyTurn = true;
+  score = { X: 0, O: 0 };
+  resetGame();
+  opponentInfo.style.display = 'none';
+  document.getElementById('newGameBtn').style.display = '';
+  showScreen('gameScreen');
+}
+
+function showWaitingRoom() {
+  if (!socket) initSocket();
+  document.getElementById('lobbyView').style.display = '';
+  document.getElementById('hostingView').style.display = 'none';
+  socket.emit('get_rooms');
+  showScreen('waitingRoom');
+}
+
+function initSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  socket = io();
+  
+  socket.on('room_list', (rooms) => {
+    const list = document.getElementById('roomList');
+    if (rooms.length === 0) {
+      list.innerHTML = '<div class="no-rooms">No games available. Host one!</div>';
+    } else {
+      list.innerHTML = rooms.map(r => `
+        <div class="room-item">
+          <span>${r.host_name}'s game</span>
+          <button onclick="joinGame('${r.id}')">Join</button>
+        </div>
+      `).join('');
+    }
+  });
+  
+  socket.on('room_created', (data) => {
+    currentRoomId = data.room_id;
+    document.getElementById('roomCode').textContent = data.room_id.toUpperCase();
+    document.getElementById('lobbyView').style.display = 'none';
+    document.getElementById('hostingView').style.display = '';
+  });
+  
+  socket.on('join_error', (data) => {
+    alert(data.message);
+    socket.emit('get_rooms');
+  });
+  
+  socket.on('game_start', (data) => {
+    gameMode = 'multiplayer';
+    mySymbol = data.symbol;
+    opponentName = data.opponent_name;
+    isMyTurn = data.your_turn;
+    score = { X: 0, O: 0 };
+    resetGame();
+    current = 'X';
+    opponentInfo.style.display = '';
+    opponentInfo.textContent = `vs ${opponentName} | You: ${mySymbol}`;
+    document.getElementById('newGameBtn').style.display = 'none';
+    showScreen('gameScreen');
+  });
+  
+  socket.on('move_made', (data) => {
+    const key = gridKey(data.gx, data.gy);
+    board.set(key, data.symbol);
+    current = (data.symbol === 'X') ? 'O' : 'X';
+    isMyTurn = (current === mySymbol);
+    
+    if (checkWinAndLine(data.gx, data.gy, data.symbol)) {
+      score[data.symbol] += 1;
+      game_over = true;
+      if (data.symbol === mySymbol) {
+        socket.emit('game_won', { winner: mySymbol });
+      }
+      showGameOver(data.symbol);
+    }
+  });
+  
+  socket.on('game_over', (data) => {
+    game_over = true;
+  });
+  
+  socket.on('rematch_start', (data) => {
+    mySymbol = data.symbol;
+    isMyTurn = data.your_turn;
+    board.clear();
+    winner_line = [];
+    game_over = false;
+    current = 'X';
+    camera_x = new Decimal(WIDTH / 2);
+    camera_y = new Decimal(HEIGHT / 2);
+    ZOOM = new Decimal(1);
+    opponentInfo.textContent = `vs ${opponentName} | You: ${mySymbol}`;
+    document.getElementById('gameOverOverlay').classList.remove('active');
+  });
+  
+  socket.on('opponent_left', () => {
+    document.getElementById('gameOverOverlay').classList.remove('active');
+    document.getElementById('opponentLeftOverlay').classList.add('active');
+  });
+}
+
+function hostGame() {
+  const name = document.getElementById('playerName').value.trim() || 'Player';
+  socket.emit('create_room', { name });
+}
+
+function joinGame(roomId) {
+  const name = document.getElementById('playerName').value.trim() || 'Player';
+  socket.emit('join_room', { room_id: roomId, name });
+}
+
+function cancelHost() {
+  socket.emit('leave_game');
+  currentRoomId = null;
+  document.getElementById('lobbyView').style.display = '';
+  document.getElementById('hostingView').style.display = 'none';
+  socket.emit('get_rooms');
+}
+
+function handleNewGame() {
+  if (gameMode === 'singleplayer') {
+    newGame(game_over ? current : null);
+    document.getElementById('gameOverOverlay').classList.remove('active');
+  }
+}
+
+function handleRematch() {
+  if (gameMode === 'multiplayer') {
+    socket.emit('request_rematch');
+  } else {
+    newGame(current);
+    document.getElementById('gameOverOverlay').classList.remove('active');
+  }
+}
+
+function showGameOver(winner) {
+  const text = document.getElementById('gameOverText');
+  if (gameMode === 'multiplayer') {
+    text.textContent = (winner === mySymbol) ? 'You Win!' : 'You Lose!';
+  } else {
+    text.textContent = `${winner} Wins!`;
+  }
+  document.getElementById('gameOverOverlay').classList.add('active');
+}
+
+function quitGame() {
+  if (gameMode === 'multiplayer' && socket) {
+    socket.emit('leave_game');
+  }
+  gameMode = null;
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  document.getElementById('opponentLeftOverlay').classList.remove('active');
+  showScreen('startMenu');
+}
+
+function backToMenu() {
+  if (socket && currentRoomId) {
+    socket.emit('leave_game');
+    currentRoomId = null;
+  }
+  document.getElementById('opponentLeftOverlay').classList.remove('active');
+  showScreen('startMenu');
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
