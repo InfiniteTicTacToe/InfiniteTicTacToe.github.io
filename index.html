@@ -86,6 +86,41 @@
   .overlay-content h2 { margin:0 0 16px 0; }
   .overlay-content .buttons { display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap; }
   
+  .name-line { margin-top:14px; font-size:0.9rem; color:#555; cursor:pointer; }
+  .name-line u { color:#2d63e0; }
+  #nameInput { width:100%; padding:12px 16px; border:2px solid #ccc; border-radius:8px; font-size:1rem; color:#333; margin-top:8px; }
+
+  .online-badge { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#333; background:rgba(255,255,255,0.9); border:1px solid #ddd; border-radius:999px; padding:4px 12px; margin:-0.5rem 0 1rem 0; }
+  .online-badge .dot { width:8px; height:8px; border-radius:50%; background:#2ecc71; display:inline-block; }
+  #onlinePill { display:none; position:absolute; left:8px; top:56px; z-index:12; margin:0; font-size:12px; padding:3px 10px; }
+  #clockbox { display:none; gap:6px; align-items:center; }
+  .clock { font-variant-numeric:tabular-nums; font-weight:700; padding:5px 9px; border-radius:6px; background:#ebebeb; font-size:14px; border:2px solid transparent; white-space:nowrap; }
+  .clock.x { color:#dc3737; }
+  .clock.o { color:#2d63e0; }
+  .clock.active { background:#fff; border-color:currentColor; }
+  .clock.low { background:#fde8e8; }
+
+  #chatBtn { display:none; position:relative; }
+  #chatBadge { position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 4px; border-radius:9px; background:#e74c3c; color:#fff; font-size:11px; line-height:18px; text-align:center; display:none; }
+  #chatPanel { display:none; position:absolute; right:8px; top:56px; width:300px; height:min(55%, 380px); background:#fff; color:#333; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,0.25); z-index:30; flex-direction:column; overflow:hidden; }
+  #chatPanel.open { display:flex; }
+  #chatHeader { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-weight:700; background:#f0f0f0; font-size:14px; }
+  #chatHeader button { border:0; background:transparent; font-size:18px; cursor:pointer; color:#555; }
+  #chatList { flex:1; overflow-y:auto; padding:8px 10px; touch-action:pan-y; font-size:14px; }
+  .chat-msg { margin:4px 0; word-wrap:break-word; overflow-wrap:anywhere; }
+  .chat-name { font-weight:700; color:#333; }
+  .chat-msg.mine .chat-name { color:#2d63e0; }
+  .chat-name.spec { color:#888; font-style:italic; }
+  .chat-empty { text-align:center; color:#999; padding:16px 0; font-size:13px; }
+  #chatForm { display:flex; gap:6px; padding:8px; border-top:1px solid #eee; }
+  #chatInput { flex:1; min-width:0; padding:8px 10px; border:1px solid #ccc; border-radius:8px; font-size:14px; color:#333; }
+  #chatForm button { padding:8px 12px; border:0; border-radius:8px; background:#333; color:#fff; font-weight:600; cursor:pointer; }
+
+  @media (max-width: 600px) {
+    #zoomWrap { display:none; }
+    .clock { padding:4px 6px; font-size:12px; }
+    #chatPanel { left:8px; right:8px; top:auto; bottom:8px; width:auto; height:45%; }
+  }
   @media (max-width: 600px) {
     #startMenu h1 { font-size:1.8rem; }
     .menu-btn { padding:14px 36px; font-size:1rem; min-width:180px; }
@@ -106,15 +141,17 @@
     <div class="subtitle">Get 5 in a row to win!</div>
     <button class="menu-btn primary" onclick="startSingleplayer()">Singleplayer</button>
     <button class="menu-btn secondary" onclick="showWaitingRoom()">Multiplayer</button>
+    <div id="nameLine" class="name-line" onclick="editName()"></div>
   </div>
 
   <div id="waitingRoom" class="screen grid-bg">
     <h2>Multiplayer</h2>
+    <div class="online-badge"><span class="dot"></span><span id="onlineLobby">- online</span></div>
     <div class="room-container">
       <div id="lobbyView">
         <div class="input-group">
           <label>Your Name</label>
-          <input type="text" id="playerName" placeholder="Enter your name" maxlength="20" value="Player">
+          <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
         </div>
         <button class="menu-btn primary" style="width:100%;margin:12px 0 8px 0" onclick="hostGame()">Host Game</button>
         
@@ -153,11 +190,18 @@
         <div id="scoreX">X : 0</div>
         <div id="scoreO">O : 0</div>
       </div>
+      <div id="clockbox">
+        <div class="clock x" id="clockX">X 10:00</div>
+        <div class="clock o" id="clockO">O 10:00</div>
+      </div>
       <button class="topbar-btn" id="newGameBtn" onclick="handleNewGame()">New Game</button>
       <div style="flex:1"></div>
-      <div style="font-size:13px;color:#333">Zoom: <span id="zoomLabel">1.00x</span></div>
+      <button class="topbar-btn" id="chatBtn" onclick="toggleChat()">&#128172;<span id="chatBadge"></span></button>
+      <div id="zoomWrap" style="font-size:13px;color:#333">Zoom: <span id="zoomLabel">1.00x</span></div>
       <button class="topbar-btn quit" onclick="quitGame()">Quit</button>
     </div>
+
+    <div id="onlinePill" class="online-badge"><span class="dot"></span><span id="onlineGame">- online</span></div>
 
     <div id="canvasWrap">
       <canvas id="c"></canvas>
@@ -167,6 +211,26 @@
       </div>
       <div id="turnDisplay"></div>
       <div id="opponentInfo" style="display:none"></div>
+    </div>
+
+    <div id="chatPanel">
+      <div id="chatHeader"><span>Chat</span><button onclick="toggleChat()" aria-label="Close chat">&times;</button></div>
+      <div id="chatList"><div class="chat-empty">No messages yet</div></div>
+      <div id="chatForm">
+        <input id="chatInput" type="text" maxlength="200" placeholder="Say something..." autocomplete="off">
+        <button onclick="sendChatFromInput()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="nameOverlay" class="overlay">
+    <div class="overlay-content" style="min-width:min(320px,90vw)">
+      <h2>What's your name?</h2>
+      <div style="font-size:14px;color:#666">Other players will see it. It's saved on this device.</div>
+      <input id="nameInput" type="text" maxlength="20" placeholder="Your name">
+      <div class="buttons">
+        <button class="menu-btn primary small" onclick="submitName()">Continue</button>
+      </div>
     </div>
   </div>
 
@@ -703,11 +767,13 @@ function loop(){
 }
 
 function showScreen(id) {
+  if (id === 'startMenu' && window.Net) Net.setOnline(false);
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
 function startSingleplayer() {
+  setNetUI(false);
   gameMode = 'singleplayer';
   mySymbol = null;
   opponentName = null;
@@ -730,6 +796,7 @@ function netReady() {
 
 function showWaitingRoom() {
   if (!netReady()) return;
+  Net.setOnline(true);
   document.getElementById('lobbyView').style.display = '';
   document.getElementById('hostingView').style.display = 'none';
   Net.watchLobby();
@@ -781,6 +848,7 @@ function onJoinError(message) {
 }
 
 function onGameStart(data) {
+  setNetUI(true);
   gameMode = 'multiplayer';
   isSpectating = false;
   mySymbol = data.symbol;
@@ -855,6 +923,7 @@ function onOpponentLeft() {
 }
 
 function onSpectateStart(data) {
+  setNetUI(true);
   gameMode = 'spectator';
   isSpectating = true;
   mySymbol = null;
@@ -883,8 +952,154 @@ function onGameEnded() {
 
 /* ---- UI actions ---- */
 function playerName() {
-  return (document.getElementById('playerName').value.trim() || 'Player').slice(0, 20);
+  const n = (document.getElementById('playerName').value.trim() || 'Player').slice(0, 20);
+  saveName(n);
+  updateNameLine();
+  return n;
 }
+
+/* ---- Saved player name (stored only on this device) ---- */
+const NAME_KEY = 'ttt_player_name';
+function loadSavedName() {
+  try { return (localStorage.getItem(NAME_KEY) || '').trim().slice(0, 20); } catch (e) { return ''; }
+}
+function saveName(n) {
+  try { localStorage.setItem(NAME_KEY, n); } catch (e) { /* storage may be blocked */ }
+}
+function updateNameLine() {
+  const n = loadSavedName();
+  const el = document.getElementById('nameLine');
+  el.innerHTML = n ? `Playing as <b>${escapeHtml(n)}</b> &middot; <u>change</u>` : '';
+}
+function editName() {
+  document.getElementById('nameInput').value = loadSavedName();
+  document.getElementById('nameOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('nameInput').focus(), 50);
+}
+function submitName() {
+  const v = (document.getElementById('nameInput').value.trim() || 'Player').slice(0, 20);
+  saveName(v);
+  document.getElementById('playerName').value = v;
+  document.getElementById('nameOverlay').classList.remove('active');
+  updateNameLine();
+}
+function initName() {
+  const input = document.getElementById('playerName');
+  const saved = loadSavedName();
+  if (saved) {
+    input.value = saved;
+  } else {
+    editName();
+  }
+  input.addEventListener('input', () => {
+    const v = input.value.trim().slice(0, 20);
+    if (v) { saveName(v); updateNameLine(); }
+  });
+  document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitName(); });
+  updateNameLine();
+}
+
+/* ---- Chess-style clocks ---- */
+let clockState = null;
+function fmtClock(ms) {
+  const sec = Math.ceil(Math.max(0, ms) / 1000);
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+function onClockUpdate(st) {
+  clockState = st;
+  renderClocks();
+}
+function renderClocks() {
+  if (!clockState || !window.Net || document.getElementById('clockbox').style.display === 'none') return;
+  const now = Net.serverNow();
+  for (const sym of ['X', 'O']) {
+    const active = clockState.running && clockState.turn === sym;
+    let ms = clockState['clock' + sym];
+    if (active) ms -= (now - clockState.turnStart);
+    ms = Math.max(0, ms);
+    const el = document.getElementById('clock' + sym);
+    el.textContent = `${sym} ${fmtClock(ms)}`;
+    el.classList.toggle('active', active);
+    el.classList.toggle('low', active && ms < 30000);
+  }
+}
+setInterval(renderClocks, 250);
+
+function onTimeout(winnerSymbol) {
+  game_over = true;
+  if (!isSpectating) {
+    score[winnerSymbol] += 1;
+    showGameOver(winnerSymbol, 'time');
+  }
+}
+
+/* ---- Chat ---- */
+let chatOpen = false, chatUnread = 0;
+let onlineCount = null;
+function onOnlineCount(n) {
+  onlineCount = n;
+  const txt = `${n} online`;
+  document.getElementById('onlineLobby').textContent = txt;
+  document.getElementById('onlineGame').textContent = txt;
+}
+function setNetUI(on) {
+  document.getElementById('onlinePill').style.display = on ? 'inline-flex' : 'none';
+  document.getElementById('clockbox').style.display = on ? 'flex' : 'none';
+  document.getElementById('chatBtn').style.display = on ? '' : 'none';
+  if (!on) { closeChat(); }
+}
+function updateChatBadge() {
+  const b = document.getElementById('chatBadge');
+  b.style.display = chatUnread > 0 ? 'block' : 'none';
+  b.textContent = chatUnread > 9 ? '9+' : String(chatUnread);
+}
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chatPanel').classList.toggle('open', chatOpen);
+  if (chatOpen) {
+    chatUnread = 0;
+    updateChatBadge();
+    const list = document.getElementById('chatList');
+    list.scrollTop = list.scrollHeight;
+    if (!isTouchDevice) document.getElementById('chatInput').focus();
+  }
+}
+function closeChat() {
+  chatOpen = false;
+  document.getElementById('chatPanel').classList.remove('open');
+}
+function clearChat() {
+  document.getElementById('chatList').innerHTML = '<div class="chat-empty">No messages yet</div>';
+  chatUnread = 0;
+  updateChatBadge();
+}
+function onChatReset() { clearChat(); }
+function onChatMessage(m, initial) {
+  const list = document.getElementById('chatList');
+  const empty = list.querySelector('.chat-empty');
+  if (empty) empty.remove();
+  const row = document.createElement('div');
+  row.className = 'chat-msg' + (m.mine ? ' mine' : '');
+  const nameEl = document.createElement('span');
+  nameEl.className = 'chat-name' + (m.role === 'spectator' ? ' spec' : '');
+  nameEl.textContent = (m.name || 'Player') + (m.role === 'spectator' ? ' (spectator)' : '') + ': ';
+  const textEl = document.createElement('span');
+  textEl.textContent = m.text;
+  row.appendChild(nameEl);
+  row.appendChild(textEl);
+  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  list.appendChild(row);
+  if (atBottom || m.mine) list.scrollTop = list.scrollHeight;
+  if (!initial && !m.mine && !chatOpen) { chatUnread++; updateChatBadge(); }
+}
+function sendChatFromInput() {
+  const input = document.getElementById('chatInput');
+  const t = input.value.trim();
+  if (!t || !window.Net) return;
+  input.value = '';
+  Net.sendChat(t, playerName());
+}
+document.getElementById('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChatFromInput(); });
 
 function hostGame() {
   if (!netReady()) return;
@@ -924,10 +1139,13 @@ function handleRematch() {
   }
 }
 
-function showGameOver(winner) {
+function showGameOver(winner, reason) {
   const text = document.getElementById('gameOverText');
   if (gameMode === 'multiplayer') {
-    text.textContent = (winner === mySymbol) ? 'You Win!' : 'You Lose!';
+    const won = (winner === mySymbol);
+    text.textContent = reason === 'time'
+      ? (won ? 'You Win! Opponent ran out of time' : 'You Lose! Out of time')
+      : (won ? 'You Win!' : 'You Lose!');
   } else {
     text.textContent = `${winner} Wins!`;
   }
@@ -935,6 +1153,8 @@ function showGameOver(winner) {
 }
 
 function quitGame() {
+  closeChat();
+  clearChat();
   if ((gameMode === 'multiplayer' || isSpectating) && window.Net) {
     Net.leave();
   }
@@ -946,12 +1166,15 @@ function quitGame() {
 }
 
 function backToMenu() {
+  closeChat();
+  clearChat();
   if (window.Net) Net.leave();
   currentRoomId = null;
   document.getElementById('opponentLeftOverlay').classList.remove('active');
   showScreen('startMenu');
 }
 
+initName();
 requestAnimationFrame(loop);
 </script>
 
@@ -960,7 +1183,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebas
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 import {
-  getDatabase, ref, onValue, get, update, remove, runTransaction, onDisconnect, serverTimestamp
+  getDatabase, ref, onValue, onChildAdded, get, set, push, update, remove, runTransaction, onDisconnect,
+  serverTimestamp, query, orderByKey, startAfter, limitToLast
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
 
 // >>> Copy the exact URL shown at the top of Realtime Database -> Data in the Firebase console <<<
@@ -982,6 +1206,13 @@ try { getAnalytics(app); } catch (e) { /* analytics is optional */ }
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+const TIME_LIMIT = 10 * 60 * 1000;   // 10 minutes per player
+
+// server clock estimate, so both players' timers agree
+let serverOffset = 0;
+onValue(ref(db, '.info/serverTimeOffset'), s => { serverOffset = s.val() || 0; });
+const serverNow = () => Date.now() + serverOffset;
+
 let uid = null;
 const ready = signInAnonymously(auth).then(c => { uid = c.user.uid; }).catch(err => {
   console.error(err);
@@ -993,7 +1224,8 @@ ready.catch(() => {});
 /* ---------- session state ---------- */
 let roomId = null, role = null;            // role: 'host' | 'guest' | 'spectator'
 let roomData = null, inGame = false, peerGone = false, movesRound = null;
-let unsubRoom = null, unsubMoves = null;
+let unsubRoom = null, unsubMoves = null, unsubChat = null, clockTimer = null;
+let timeoutShownKey = null, reportingTimeout = false, lastChatSent = 0;
 let dcRefs = [];                           // locations with a pending onDisconnect
 
 const roomRef = id => ref(db, 'rooms/' + id);
@@ -1008,8 +1240,38 @@ function guestLeftPatch() {
   return {
     guestId: null, guestName: null, status: 'waiting',
     hostSymbol: 'X', guestSymbol: 'O', currentTurn: 'X', moveCount: 0,
-    winner: null, round: serverTimestamp()   // new round value = fresh, empty board
+    winner: null, reason: null, clockX: TIME_LIMIT, clockO: TIME_LIMIT, turnStart: 0,
+    round: serverTimestamp()   // new round value = fresh, empty board
   };
+}
+
+/* ---------- online counter (one presence entry per open tab) ---------- */
+let wantOnline = false, unsubConn = null, unsubCount = null, presenceRef = null;
+
+function setOnline(on) {
+  wantOnline = on;
+  if (on) {
+    ready.then(() => {
+      if (!wantOnline || unsubConn) return;
+      presenceRef = push(ref(db, 'presence'));
+      const mine = presenceRef;
+      unsubConn = onValue(ref(db, '.info/connected'), s => {
+        if (!s.val()) return;
+        // re-registered on every (re)connect
+        onDisconnect(mine).remove().then(() => set(mine, uid)).catch(() => {});
+      });
+      unsubCount = onValue(ref(db, 'presence'), s => onOnlineCount(s.size), () => {});
+    }).catch(() => {});
+  } else {
+    if (unsubConn) { unsubConn(); unsubConn = null; }
+    if (unsubCount) { unsubCount(); unsubCount = null; }
+    if (presenceRef) {
+      const r = presenceRef;
+      presenceRef = null;
+      onDisconnect(r).cancel().catch(() => {});
+      remove(r).catch(() => {});
+    }
+  }
 }
 
 /* ---------- lobby ---------- */
@@ -1053,7 +1315,8 @@ async function createRoom(name) {
     const data = {
       hostId: uid, hostName: name, guestId: null, guestName: null,
       status: 'waiting', hostSymbol: 'X', guestSymbol: 'O',
-      currentTurn: 'X', moveCount: 0, round: 0, winner: null
+      currentTurn: 'X', moveCount: 0, round: 0, winner: null,
+      clockX: TIME_LIMIT, clockO: TIME_LIMIT, turnStart: 0
     };
     let id = null;
     for (let i = 0; i < 5 && !id; i++) {
@@ -1078,6 +1341,7 @@ async function joinRoom(id, name) {
       if (cur === null) return cur;
       if (cur.status !== 'waiting' || cur.guestId || cur.hostId === uid) return;   // abort
       cur.guestId = uid; cur.guestName = name; cur.status = 'playing';
+      cur.clockX = TIME_LIMIT; cur.clockO = TIME_LIMIT; cur.turnStart = serverNow();
       return cur;
     });
     if (!res.committed || !res.snapshot.exists()) {
@@ -1116,10 +1380,11 @@ function beginSession(id, r) {
 
   // Presence: the server runs these if this client disconnects for any reason.
   if (r === 'host') {
-    const mr = ref(db, 'moves/' + id);
+    const mr = ref(db, 'moves/' + id), cr = ref(db, 'chats/' + id);
     onDisconnect(mr).remove().catch(() => {});
+    onDisconnect(cr).remove().catch(() => {});
     onDisconnect(roomRef(id)).remove().catch(() => {});
-    dcRefs = [mr, roomRef(id)];
+    dcRefs = [mr, cr, roomRef(id)];
   } else if (r === 'guest') {
     onDisconnect(roomRef(id)).update(guestLeftPatch()).catch(() => {});
     dcRefs = [roomRef(id)];
@@ -1131,12 +1396,18 @@ function beginSession(id, r) {
   }
 
   unsubRoom = onValue(roomRef(id), onRoom, err => console.error(err));
+  timeoutShownKey = null; reportingTimeout = false;
+  clockTimer = setInterval(checkClock, 500);
+  onChatReset();
+  startChat(id);
 }
 
 function stopSession() {
   if (unsubRoom) unsubRoom();
   if (unsubMoves) unsubMoves();
-  unsubRoom = unsubMoves = null;
+  if (unsubChat) unsubChat();
+  clearInterval(clockTimer);
+  unsubRoom = unsubMoves = unsubChat = clockTimer = null;
   roomId = null; role = null; roomData = null; inGame = false; dcRefs = [];
 }
 
@@ -1151,6 +1422,15 @@ function onRoom(snap) {
   }
   const prev = roomData;
   roomData = r;
+  onClockUpdate({
+    clockX: r.clockX ?? TIME_LIMIT, clockO: r.clockO ?? TIME_LIMIT,
+    turnStart: r.turnStart || 0, turn: r.currentTurn,
+    running: r.status === 'playing' && !r.winner
+  });
+  if (r.winner && r.reason === 'time' && inGame && role !== 'spectator') {
+    const key = roomId + ':' + r.round;
+    if (timeoutShownKey !== key) { timeoutShownKey = key; onTimeout(r.winner); }
+  }
 
   if (role === 'host' || role === 'guest') {
     const mySym = role === 'host' ? r.hostSymbol : r.guestSymbol;
@@ -1231,12 +1511,17 @@ async function makeMove(gx, gy) {
   const sym = role === 'host' ? r.hostSymbol : r.guestSymbol;
   if (r.status !== 'playing' || r.winner || r.currentTurn !== sym) return;
   const id = roomId, n = (r.moveCount || 0) + 1;
+  const elapsed = Math.max(0, serverNow() - (r.turnStart || serverNow()));
+  const left = Math.max(0, (sym === 'X' ? (r.clockX ?? TIME_LIMIT) : (r.clockO ?? TIME_LIMIT)) - elapsed);
+  if (left <= 0) { reportTimeout(); return; }
   try {
     // one atomic write: the move + whose turn it is next
     await update(ref(db), {
       [`moves/${id}/${r.round}/${gx},${gy}`]: { n, gx, gy, symbol: sym },
       [`rooms/${id}/currentTurn`]: sym === 'X' ? 'O' : 'X',
-      [`rooms/${id}/moveCount`]: n
+      [`rooms/${id}/moveCount`]: n,
+      [`rooms/${id}/clock${sym}`]: left,
+      [`rooms/${id}/turnStart`]: serverNow()
     });
   } catch (e) {
     console.warn('move rejected', e);
@@ -1271,7 +1556,68 @@ async function rematch() {
       cur.currentTurn = 'X';
       cur.moveCount = 0;
       cur.winner = null;
+      cur.reason = null;
+      cur.clockX = TIME_LIMIT; cur.clockO = TIME_LIMIT; cur.turnStart = serverNow();
       return cur;
+    });
+  } catch (e) { console.warn(e); }
+}
+
+/* ---------- clock timeout ---------- */
+function checkClock() {
+  const r = roomData;
+  if (!r || !inGame || (role !== 'host' && role !== 'guest')) return;
+  if (r.status !== 'playing' || r.winner || reportingTimeout) return;
+  const mine = r.currentTurn === 'X' ? (r.clockX ?? TIME_LIMIT) : (r.clockO ?? TIME_LIMIT);
+  if (mine - (serverNow() - (r.turnStart || serverNow())) <= 0) reportTimeout();
+}
+
+async function reportTimeout() {
+  if (!roomId || !roomData || reportingTimeout) return;
+  reportingTimeout = true;
+  const id = roomId, round = roomData.round;
+  try {
+    await runTransaction(roomRef(id), cur => {
+      if (cur === null) return cur;
+      if (cur.round !== round || cur.winner || cur.status !== 'playing') return;
+      const t = cur.currentTurn;
+      const left = (t === 'X' ? cur.clockX : cur.clockO) - (serverNow() - cur.turnStart);
+      if (left > 0) return;
+      cur.winner = t === 'X' ? 'O' : 'X';
+      cur.reason = 'time';
+      return cur;
+    });
+  } catch (e) { console.warn(e); }
+  reportingTimeout = false;
+}
+
+/* ---------- chat (players + spectators) ---------- */
+function emitChat(m, initial) {
+  onChatMessage({ name: m.name, text: m.text, role: m.role, mine: m.uid === uid }, initial);
+}
+
+async function startChat(id) {
+  const cref = ref(db, 'chats/' + id);
+  try {
+    await ready;
+    const snap = await get(query(cref, limitToLast(100)));
+    if (roomId !== id) return;
+    let lastKey = null;
+    snap.forEach(c => { lastKey = c.key; emitChat(c.val(), true); });
+    const q = lastKey ? query(cref, orderByKey(), startAfter(lastKey)) : cref;
+    unsubChat = onChildAdded(q, c => emitChat(c.val(), false));
+  } catch (e) { console.warn('chat unavailable', e); }
+}
+
+async function sendChat(text, name) {
+  if (!roomId) return;
+  const now = Date.now();
+  if (now - lastChatSent < 700) return;   // basic spam limit
+  lastChatSent = now;
+  try {
+    await set(push(ref(db, 'chats/' + roomId)), {
+      uid, name: (name || 'Player').slice(0, 20), text: String(text).slice(0, 200),
+      role: role === 'spectator' ? 'spectator' : 'player', t: serverTimestamp()
     });
   } catch (e) { console.warn(e); }
 }
@@ -1285,6 +1631,7 @@ async function leave() {
   try {
     if (r === 'host') {
       await remove(ref(db, 'moves/' + id));
+      await remove(ref(db, 'chats/' + id));
       await remove(roomRef(id));
     } else if (r === 'guest') {
       await update(roomRef(id), guestLeftPatch());
@@ -1294,7 +1641,7 @@ async function leave() {
   } catch (e) { /* room may already be gone */ }
 }
 
-window.Net = { watchLobby, createRoom, joinRoom, spectate, leave, makeMove, reportWin, rematch };
+window.Net = { watchLobby, createRoom, joinRoom, spectate, leave, makeMove, reportWin, rematch, sendChat, serverNow, setOnline };
 </script>
 </body>
 </html>
