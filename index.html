@@ -822,6 +822,14 @@ function onMoveMade(data) {
   }
 }
 
+function onBoardReset() {
+  board.clear();
+  winner_line = [];
+  game_over = false;
+  lastOpponentMove = null;
+  current = 'X';
+}
+
 function onGameOver() {
   game_over = true;
 }
@@ -952,13 +960,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebas
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot,
-  query, where, runTransaction, writeBatch, deleteField, increment
-} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+  getDatabase, ref, onValue, get, update, remove, runTransaction, onDisconnect, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
+// >>> Copy the exact URL shown at the top of Realtime Database -> Data in the Firebase console <<<
+const DATABASE_URL = "https://infinite-tictactoe-cd43f-default-rtdb.firebaseio.com";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDKoZi9aBvsVgmu4_vt_6NTOWL0goU3-vs",
   authDomain: "infinite-tictactoe-cd43f.firebaseapp.com",
+  databaseURL: DATABASE_URL,
   projectId: "infinite-tictactoe-cd43f",
   storageBucket: "infinite-tictactoe-cd43f.firebasestorage.app",
   messagingSenderId: "1048843248875",
@@ -969,16 +980,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 try { getAnalytics(app); } catch (e) { /* analytics is optional */ }
 const auth = getAuth(app);
-const db = getFirestore(app);
-
-const HEARTBEAT_MS = 10000;   // how often we say "still here"
-const STALE_MS = 45000;       // no heartbeat for this long = disconnected
-const CLEANUP_MS = 120000;    // abandoned rooms older than this get deleted
+const db = getDatabase(app);
 
 let uid = null;
 const ready = signInAnonymously(auth).then(c => { uid = c.user.uid; }).catch(err => {
   console.error(err);
-  alert('Could not sign in to Firebase. Make sure Anonymous sign-in is enabled in the Firebase console.');
+  alert('Could not sign in to Firebase. Make sure Anonymous sign-in is enabled and this domain is authorized.');
   throw err;
 });
 ready.catch(() => {});
@@ -986,27 +993,49 @@ ready.catch(() => {});
 /* ---------- session state ---------- */
 let roomId = null, role = null;            // role: 'host' | 'guest' | 'spectator'
 let roomData = null, inGame = false, peerGone = false, movesRound = null;
-let unsubRoom = null, unsubMoves = null, hbTimer = null;
+let unsubRoom = null, unsubMoves = null;
+let dcRefs = [];                           // locations with a pending onDisconnect
 
-const roomRef = id => doc(db, 'rooms', id);
+const roomRef = id => ref(db, 'rooms/' + id);
+const movesRef = (id, round) => ref(db, `moves/${id}/${round}`);
 
 function randomId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from(crypto.getRandomValues(new Uint8Array(6)), x => chars[x % chars.length]).join('');
 }
 
+function guestLeftPatch() {
+  return {
+    guestId: null, guestName: null, status: 'waiting',
+    hostSymbol: 'X', guestSymbol: 'O', currentTurn: 'X', moveCount: 0,
+    winner: null, round: serverTimestamp()   // new round value = fresh, empty board
+  };
+}
+
 /* ---------- lobby ---------- */
-let unsubLobby = null, lobbySnap = null, lobbyTimer = null, lobbyTok = 0;
-const deleting = new Set();
+let unsubLobby = null, lobbyTok = 0;
 
 function watchLobby() {
   stopLobby();
   const tok = ++lobbyTok;
   ready.then(() => {
     if (tok !== lobbyTok) return;
-    const q = query(collection(db, 'rooms'), where('status', 'in', ['waiting', 'playing']));
-    unsubLobby = onSnapshot(q, snap => { lobbySnap = snap; renderLobby(); }, err => console.error(err));
-    lobbyTimer = setInterval(renderLobby, 5000);
+    unsubLobby = onValue(ref(db, 'rooms'), snap => {
+      const waiting = [], ongoing = [];
+      snap.forEach(d => {
+        const r = d.val();
+        if (!r || !r.hostId) return;
+        if (r.status === 'waiting') {
+          waiting.push({ id: d.key, host_name: r.hostName });
+        } else if (r.status === 'playing') {
+          ongoing.push({
+            id: d.key, host_name: r.hostName, guest_name: r.guestName,
+            spectators: Object.keys(r.specs || {}).length
+          });
+        }
+      });
+      onRoomList({ waiting, ongoing });
+    }, err => console.error(err));
   }).catch(() => {});
 }
 
@@ -1014,34 +1043,6 @@ function stopLobby() {
   lobbyTok++;
   if (unsubLobby) unsubLobby();
   unsubLobby = null;
-  clearInterval(lobbyTimer);
-  lobbyTimer = null;
-  lobbySnap = null;
-}
-
-function renderLobby() {
-  if (!lobbySnap) return;
-  const now = Date.now();
-  const waiting = [], ongoing = [];
-  lobbySnap.forEach(d => {
-    const r = d.data();
-    const hostAge = now - (r.hostSeen || 0);
-    if (hostAge > CLEANUP_MS) {
-      if (!deleting.has(d.id)) { deleting.add(d.id); deleteDoc(d.ref).catch(() => {}); }
-      return;
-    }
-    const hostAlive = hostAge < STALE_MS;
-    if (r.status === 'waiting') {
-      if (hostAlive) waiting.push({ id: d.id, host_name: r.hostName });
-    } else if (r.status === 'playing') {
-      const guestAlive = now - (r.guestSeen || 0) < STALE_MS;
-      if (hostAlive || guestAlive) {
-        const specs = Object.values(r.specs || {}).filter(t => now - t < STALE_MS).length;
-        ongoing.push({ id: d.id, host_name: r.hostName, guest_name: r.guestName, spectators: specs });
-      }
-    }
-  });
-  onRoomList({ waiting, ongoing });
 }
 
 /* ---------- joining / hosting ---------- */
@@ -1052,19 +1053,13 @@ async function createRoom(name) {
     const data = {
       hostId: uid, hostName: name, guestId: null, guestName: null,
       status: 'waiting', hostSymbol: 'X', guestSymbol: 'O',
-      currentTurn: 'X', moveCount: 0, round: 0, winner: null,
-      hostSeen: Date.now(), guestSeen: 0, specs: {}
+      currentTurn: 'X', moveCount: 0, round: 0, winner: null
     };
     let id = null;
     for (let i = 0; i < 5 && !id; i++) {
       const candidate = randomId();
-      const ok = await runTransaction(db, async tx => {
-        const s = await tx.get(roomRef(candidate));
-        if (s.exists()) return false;
-        tx.set(roomRef(candidate), data);
-        return true;
-      });
-      if (ok) id = candidate;
+      const res = await runTransaction(roomRef(candidate), cur => (cur === null ? data : undefined));
+      if (res.committed) id = candidate;
     }
     if (!id) { onJoinError('Could not create a room, please try again.'); return; }
     stopLobby();
@@ -1072,23 +1067,28 @@ async function createRoom(name) {
     onRoomCreated(id);
   } catch (e) {
     console.error(e);
-    onJoinError('Could not create room. Is Firestore enabled for this project?');
+    onJoinError('Could not create room. Check the database URL and rules.');
   }
 }
 
 async function joinRoom(id, name) {
   try {
     await ready;
-    await runTransaction(db, async tx => {
-      const s = await tx.get(roomRef(id));
-      if (!s.exists()) throw new Error('Room not found');
-      const r = s.data();
-      if (r.status !== 'waiting' || r.guestId) throw new Error('Room is full');
-      if (r.hostId === uid) throw new Error("You can't join your own game");
-      tx.update(roomRef(id), { guestId: uid, guestName: name, status: 'playing', guestSeen: Date.now() });
+    const res = await runTransaction(roomRef(id), cur => {
+      if (cur === null) return cur;
+      if (cur.status !== 'waiting' || cur.guestId || cur.hostId === uid) return;   // abort
+      cur.guestId = uid; cur.guestName = name; cur.status = 'playing';
+      return cur;
     });
+    if (!res.committed || !res.snapshot.exists()) {
+      const s = await get(roomRef(id));
+      const v = s.val();
+      onJoinError(!v ? 'Room not found' : v.hostId === uid ? "You can't join your own game" : 'Room is full');
+      return;
+    }
   } catch (e) {
-    onJoinError(e.message && !e.code ? e.message : 'Could not join the game');
+    console.error(e);
+    onJoinError('Could not join the game');
     return;
   }
   stopLobby();
@@ -1098,12 +1098,11 @@ async function joinRoom(id, name) {
 async function spectate(id) {
   try {
     await ready;
-    const s = await getDoc(roomRef(id));
+    const s = await get(roomRef(id));
     if (!s.exists()) { onJoinError('Game not found'); return; }
-    if (s.data().status !== 'playing') { onJoinError('Game is not in progress'); return; }
+    if (s.val().status !== 'playing') { onJoinError('Game is not in progress'); return; }
     stopLobby();
     beginSession(id, 'spectator');
-    updateDoc(roomRef(id), { ['specs.' + uid]: Date.now() }).catch(() => {});
   } catch (e) {
     console.error(e);
     onJoinError('Could not watch this game');
@@ -1114,29 +1113,42 @@ function beginSession(id, r) {
   stopSession();
   roomId = id; role = r;
   roomData = null; inGame = false; peerGone = false; movesRound = null;
-  unsubRoom = onSnapshot(roomRef(id), onRoom, err => console.error(err));
-  hbTimer = setInterval(heartbeat, HEARTBEAT_MS);
+
+  // Presence: the server runs these if this client disconnects for any reason.
+  if (r === 'host') {
+    const mr = ref(db, 'moves/' + id);
+    onDisconnect(mr).remove().catch(() => {});
+    onDisconnect(roomRef(id)).remove().catch(() => {});
+    dcRefs = [mr, roomRef(id)];
+  } else if (r === 'guest') {
+    onDisconnect(roomRef(id)).update(guestLeftPatch()).catch(() => {});
+    dcRefs = [roomRef(id)];
+  } else {
+    const sr = ref(db, `rooms/${id}/specs/${uid}`);
+    update(ref(db), { [`rooms/${id}/specs/${uid}`]: true }).catch(() => {});
+    onDisconnect(sr).remove().catch(() => {});
+    dcRefs = [sr];
+  }
+
+  unsubRoom = onValue(roomRef(id), onRoom, err => console.error(err));
 }
 
 function stopSession() {
   if (unsubRoom) unsubRoom();
   if (unsubMoves) unsubMoves();
   unsubRoom = unsubMoves = null;
-  clearInterval(hbTimer);
-  hbTimer = null;
-  roomId = null; role = null; roomData = null; inGame = false;
+  roomId = null; role = null; roomData = null; inGame = false; dcRefs = [];
 }
 
 /* ---------- room state machine ---------- */
 function onRoom(snap) {
-  if (!snap.exists()) {
-    const r = role;
-    if (r === 'guest' && !peerGone) { peerGone = true; onOpponentLeft(); }
-    else if (r === 'spectator' && !peerGone) { peerGone = true; onGameEnded(); }
+  const r = snap.val();
+  if (!r) {
+    if (role === 'guest' && !peerGone) { peerGone = true; onOpponentLeft(); }
+    else if (role === 'spectator' && !peerGone) { peerGone = true; onGameEnded(); }
     if (unsubMoves) { unsubMoves(); unsubMoves = null; }
     return;
   }
-  const r = snap.data();
   const prev = roomData;
   roomData = r;
 
@@ -1174,19 +1186,28 @@ function onRoom(snap) {
   }
 }
 
-function startMoves(round) {
+function startMoves(round, reset = false) {
   if (unsubMoves) unsubMoves();
   movesRound = round;
-  let first = true;
-  const q = query(collection(db, 'rooms', roomId, 'moves'), where('round', '==', round));
-  unsubMoves = onSnapshot(q, snap => {
-    const added = snap.docChanges().filter(c => c.type === 'added').map(c => c.doc.data()).sort((a, b) => a.n - b.n);
+  let first = true, lastN = 0, count = 0;
+  if (reset) onBoardReset();
+  unsubMoves = onValue(movesRef(roomId, round), snap => {
+    const all = [];
+    snap.forEach(c => { all.push(c.val()); });
+    all.sort((a, b) => a.n - b.n);
+
+    // A move we wrote optimistically was rejected by the server: rebuild from scratch.
+    if (all.length < count) { startMoves(round, true); return; }
+    count = all.length;
+
+    const added = all.filter(m => m.n > lastN);
     if (first) {
       first = false;
       if (role === 'spectator') {
         const b = {};
-        added.forEach(m => { b[m.gx + ',' + m.gy] = m.symbol; });
-        const last = added[added.length - 1] || null;
+        all.forEach(m => { b[m.gx + ',' + m.gy] = m.symbol; });
+        const last = all[all.length - 1] || null;
+        lastN = last ? last.n : 0;
         onSpectateStart({
           host_name: roomData.hostName,
           guest_name: roomData.guestName,
@@ -1198,41 +1219,40 @@ function startMoves(round) {
         return;
       }
     }
-    added.forEach(m => onMoveMade({ gx: m.gx, gy: m.gy, symbol: m.symbol }));
+    added.forEach(m => { lastN = m.n; onMoveMade({ gx: m.gx, gy: m.gy, symbol: m.symbol }); });
   }, err => console.error(err));
 }
 
 /* ---------- gameplay ---------- */
 async function makeMove(gx, gy) {
-  if (!roomId || (role !== 'host' && role !== 'guest') || !Number.isFinite(gx) || !Number.isFinite(gy)) return;
-  const id = roomId, r0 = role;
+  if (!roomId || !roomData || (role !== 'host' && role !== 'guest')) return;
+  if (!Number.isFinite(gx) || !Number.isFinite(gy)) return;
+  const r = roomData;
+  const sym = role === 'host' ? r.hostSymbol : r.guestSymbol;
+  if (r.status !== 'playing' || r.winner || r.currentTurn !== sym) return;
+  const id = roomId, n = (r.moveCount || 0) + 1;
   try {
-    await runTransaction(db, async tx => {
-      const rs = await tx.get(roomRef(id));
-      if (!rs.exists()) return;
-      const r = rs.data();
-      const sym = r0 === 'host' ? r.hostSymbol : r.guestSymbol;
-      if (r.status !== 'playing' || r.winner || r.currentTurn !== sym) return;
-      const mref = doc(db, 'rooms', id, 'moves', `${r.round}_${gx},${gy}`);
-      const ms = await tx.get(mref);
-      if (ms.exists()) return;
-      const n = r.moveCount + 1;
-      tx.set(mref, { round: r.round, n, gx, gy, symbol: sym, by: uid });
-      tx.update(roomRef(id), { moveCount: n, currentTurn: sym === 'X' ? 'O' : 'X' });
+    // one atomic write: the move + whose turn it is next
+    await update(ref(db), {
+      [`moves/${id}/${r.round}/${gx},${gy}`]: { n, gx, gy, symbol: sym },
+      [`rooms/${id}/currentTurn`]: sym === 'X' ? 'O' : 'X',
+      [`rooms/${id}/moveCount`]: n
     });
-  } catch (e) { console.warn('move failed', e); }
+  } catch (e) {
+    console.warn('move rejected', e);
+    if (roomId === id && roomData) startMoves(roomData.round, true);
+  }
 }
 
 async function reportWin(symbol) {
   if (!roomId) return;
   const id = roomId, round = movesRound;
   try {
-    await runTransaction(db, async tx => {
-      const rs = await tx.get(roomRef(id));
-      if (!rs.exists()) return;
-      const r = rs.data();
-      if (r.round !== round || r.winner) return;
-      tx.update(roomRef(id), { winner: symbol });
+    await runTransaction(roomRef(id), cur => {
+      if (cur === null) return cur;
+      if (cur.round !== round || cur.winner) return;
+      cur.winner = symbol;
+      return cur;
     });
   } catch (e) { console.warn(e); }
 }
@@ -1241,75 +1261,38 @@ async function rematch() {
   if (!roomId || !roomData) return;
   const id = roomId, expected = roomData.round;
   try {
-    await runTransaction(db, async tx => {
-      const rs = await tx.get(roomRef(id));
-      if (!rs.exists()) return;
-      const r = rs.data();
-      if (r.round !== expected || r.status !== 'playing') return;
-      tx.update(roomRef(id), {
-        round: r.round + 1, hostSymbol: r.guestSymbol, guestSymbol: r.hostSymbol,
-        currentTurn: 'X', moveCount: 0, winner: null
-      });
+    await runTransaction(roomRef(id), cur => {
+      if (cur === null) return cur;
+      if (cur.round !== expected || cur.status !== 'playing') return;
+      const h = cur.hostSymbol;
+      cur.hostSymbol = cur.guestSymbol;
+      cur.guestSymbol = h;
+      cur.round = cur.round + 1;
+      cur.currentTurn = 'X';
+      cur.moveCount = 0;
+      cur.winner = null;
+      return cur;
     });
   } catch (e) { console.warn(e); }
 }
 
-/* ---------- presence ---------- */
-function heartbeat() {
-  if (!roomId) return;
-  const field = role === 'host' ? 'hostSeen' : role === 'guest' ? 'guestSeen' : 'specs.' + uid;
-  updateDoc(roomRef(roomId), { [field]: Date.now() }).catch(() => {});
-  checkPeers();
-}
-
-function checkPeers() {
-  if (!roomData || !roomId) return;
-  const now = Date.now(), r = roomData;
-  if (role === 'host' && r.status === 'playing' && now - (r.guestSeen || 0) > STALE_MS) {
-    updateDoc(roomRef(roomId), guestLeftPatch()).catch(() => {});
-  } else if (role === 'guest' && !peerGone && now - (r.hostSeen || 0) > STALE_MS) {
-    peerGone = true;
-    onOpponentLeft();
-  } else if (role === 'spectator' && !peerGone &&
-             now - (r.hostSeen || 0) > STALE_MS && now - (r.guestSeen || 0) > STALE_MS) {
-    peerGone = true;
-    onGameEnded();
-  }
-}
-
-function guestLeftPatch() {
-  return {
-    guestId: null, guestName: null, guestSeen: 0, status: 'waiting',
-    hostSymbol: 'X', guestSymbol: 'O', currentTurn: 'X', moveCount: 0,
-    winner: null, round: increment(1)
-  };
-}
-
 /* ---------- leaving ---------- */
-async function cleanupMoves(id) {
-  try {
-    const snap = await getDocs(collection(db, 'rooms', id, 'moves'));
-    let batch = writeBatch(db), n = 0;
-    for (const d of snap.docs) {
-      batch.delete(d.ref);
-      if (++n === 450) { await batch.commit(); batch = writeBatch(db); n = 0; }
-    }
-    if (n) await batch.commit();
-  } catch (e) { /* best effort */ }
-}
-
 async function leave() {
-  const id = roomId, r = role;
+  const id = roomId, r = role, dc = dcRefs.slice();
   stopSession();
   if (!id) return;
+  try { await Promise.all(dc.map(x => onDisconnect(x).cancel())); } catch (e) {}
   try {
-    if (r === 'host') { await deleteDoc(roomRef(id)); cleanupMoves(id); }
-    else if (r === 'guest') await updateDoc(roomRef(id), guestLeftPatch());
-    else if (r === 'spectator') await updateDoc(roomRef(id), { ['specs.' + uid]: deleteField() });
+    if (r === 'host') {
+      await remove(ref(db, 'moves/' + id));
+      await remove(roomRef(id));
+    } else if (r === 'guest') {
+      await update(roomRef(id), guestLeftPatch());
+    } else if (r === 'spectator') {
+      await remove(ref(db, `rooms/${id}/specs/${uid}`));
+    }
   } catch (e) { /* room may already be gone */ }
 }
-
-window.addEventListener('pagehide', () => { leave(); });
 
 window.Net = { watchLobby, createRoom, joinRoom, spectate, leave, makeMove, reportWin, rematch };
 </script>
