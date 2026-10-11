@@ -234,6 +234,7 @@
       <input id="nameInput" type="text" maxlength="20" placeholder="Your name">
       <div class="buttons">
         <button class="menu-btn primary small" onclick="submitName()">Continue</button>
+        <button class="menu-btn secondary small" onclick="cancelName()">Cancel</button>
       </div>
     </div>
   </div>
@@ -801,6 +802,10 @@ function netReady() {
 
 function showWaitingRoom() {
   if (!netReady()) return;
+  requireName(openLobby);   // asks for a name the first time only
+}
+
+function openLobby() {
   Net.setOnline(true);
   document.getElementById('lobbyView').style.display = '';
   document.getElementById('hostingView').style.display = 'none';
@@ -1031,21 +1036,28 @@ function editName() {
   document.getElementById('nameOverlay').classList.add('active');
   setTimeout(() => document.getElementById('nameInput').focus(), 50);
 }
+let afterName = null;
+function requireName(cb) {
+  if (loadSavedName()) { cb(); return; }
+  afterName = cb;
+  editName();
+}
 function submitName() {
   const v = (document.getElementById('nameInput').value.trim() || 'Player').slice(0, 20);
   saveName(v);
   document.getElementById('playerName').value = v;
   document.getElementById('nameOverlay').classList.remove('active');
   updateNameLine();
+  if (afterName) { const f = afterName; afterName = null; f(); }
+}
+function cancelName() {
+  afterName = null;
+  document.getElementById('nameOverlay').classList.remove('active');
 }
 function initName() {
   const input = document.getElementById('playerName');
   const saved = loadSavedName();
-  if (saved) {
-    input.value = saved;
-  } else {
-    editName();
-  }
+  if (saved) input.value = saved;
   input.addEventListener('input', () => {
     const v = input.value.trim().slice(0, 20);
     if (v) { saveName(v); updateNameLine(); }
@@ -1314,9 +1326,13 @@ function setOnline(on) {
       unsubConn = onValue(ref(db, '.info/connected'), s => {
         if (!s.val()) return;
         // re-registered on every (re)connect
-        onDisconnect(mine).remove().then(() => set(mine, uid)).catch(() => {});
+        onDisconnect(mine).remove()
+          .then(() => set(mine, uid))
+          .catch(e => console.error('Online counter: presence write failed. Publish the latest database.rules.json.', e));
       });
-      unsubCount = onValue(ref(db, 'presence'), s => onOnlineCount(s.size), () => {});
+      unsubCount = onValue(ref(db, 'presence'), s => {
+        onOnlineCount(s.exists() ? Object.keys(s.val()).length : 0);
+      }, e => console.error('Online counter: cannot read presence. Publish the latest database.rules.json.', e));
     }).catch(() => {});
   } else {
     if (unsubConn) { unsubConn(); unsubConn = null; }
