@@ -1110,10 +1110,10 @@ function onOnlineCount(n) {
   document.getElementById('onlineGame').textContent = txt;
 }
 function setNetUI(on) {
-  document.getElementById('sfxBtn').style.display = on ? '' : 'none';
+  document.getElementById('sfxBtn').style.display = on ? 'inline-block' : 'none';
   document.getElementById('onlinePill').style.display = on ? 'inline-flex' : 'none';
   document.getElementById('clockbox').style.display = on ? 'flex' : 'none';
-  document.getElementById('chatBtn').style.display = on ? '' : 'none';
+  document.getElementById('chatBtn').style.display = on ? 'inline-block' : 'none';
   if (!on) { closeChat(); }
 }
 function updateChatBadge() {
