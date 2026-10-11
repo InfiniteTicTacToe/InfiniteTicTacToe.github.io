@@ -100,6 +100,7 @@
   .clock.active { background:#fff; border-color:currentColor; }
   .clock.low { background:#fde8e8; }
 
+  #sfxBtn { display:none; }
   #chatBtn { display:none; position:relative; }
   #chatBadge { position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 4px; border-radius:9px; background:#e74c3c; color:#fff; font-size:11px; line-height:18px; text-align:center; display:none; }
   #chatPanel { display:none; position:absolute; right:8px; top:56px; width:300px; height:min(55%, 380px); background:#fff; color:#333; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,0.25); z-index:30; flex-direction:column; overflow:hidden; }
@@ -118,6 +119,7 @@
 
   @media (max-width: 600px) {
     #zoomWrap { display:none; }
+    #sfxBtn { display:none !important; }
     .clock { padding:4px 6px; font-size:12px; }
     #chatPanel { left:8px; right:8px; top:auto; bottom:8px; width:auto; height:45%; }
   }
@@ -142,6 +144,7 @@
     <button class="menu-btn primary" onclick="startSingleplayer()">Singleplayer</button>
     <button class="menu-btn secondary" onclick="showWaitingRoom()">Multiplayer</button>
     <div id="nameLine" class="name-line" onclick="editName()"></div>
+    <div id="sfxLine" class="name-line" onclick="toggleSfx()"></div>
   </div>
 
   <div id="waitingRoom" class="screen grid-bg">
@@ -196,6 +199,7 @@
       </div>
       <button class="topbar-btn" id="newGameBtn" onclick="handleNewGame()">New Game</button>
       <div style="flex:1"></div>
+      <button class="topbar-btn" id="sfxBtn" onclick="toggleSfx()" title="Sound on/off"></button>
       <button class="topbar-btn" id="chatBtn" onclick="toggleChat()">&#128172;<span id="chatBadge"></span></button>
       <div id="zoomWrap" style="font-size:13px;color:#333">Zoom: <span id="zoomLabel">1.00x</span></div>
       <button class="topbar-btn quit" onclick="quitGame()">Quit</button>
@@ -575,6 +579,7 @@ function placePiece(mx, my) {
     return true;
   } else {
     board.set(key, current);
+    playSfx(current === 'X' ? 'place' : 'opponent');
     if (checkWinAndLine(gx, gy, current)){
       score[current] += 1;
       game_over = true;
@@ -868,6 +873,7 @@ function onGameStart(data) {
 function onMoveMade(data) {
   const key = gridKey(data.gx, data.gy);
   board.set(key, data.symbol);
+  if (!data.silent) playSfx(data.symbol === mySymbol ? 'place' : 'opponent');
   current = (data.symbol === 'X') ? 'O' : 'X';
   isMyTurn = (current === mySymbol);
 
@@ -958,6 +964,55 @@ function playerName() {
   return n;
 }
 
+/* ---- Sound effects (Kenney UI Audio, CC0) ---- */
+const SFX_FILES = { place: 'sfx/place.mp3', opponent: 'sfx/opponent.mp3', click: 'sfx/click.mp3' };
+const SFX_KEY = 'ttt_sfx_muted';
+let sfxMuted = false;
+try { sfxMuted = localStorage.getItem(SFX_KEY) === '1'; } catch (e) {}
+const sfx = { ctx: null, buf: {} };
+
+function sfxInit() {
+  if (sfx.ctx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try { sfx.ctx = new AC(); } catch (e) { return; }
+  for (const [name, url] of Object.entries(SFX_FILES)) {
+    fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(data => new Promise((res, rej) => sfx.ctx.decodeAudioData(data, res, rej)))
+      .then(decoded => { sfx.buf[name] = decoded; })
+      .catch(() => { /* sound is optional */ });
+  }
+}
+function playSfx(name, volume = 0.7) {
+  if (sfxMuted || !sfx.ctx || !sfx.buf[name]) return;
+  if (sfx.ctx.state === 'suspended') sfx.ctx.resume();
+  const src = sfx.ctx.createBufferSource();
+  src.buffer = sfx.buf[name];
+  const gain = sfx.ctx.createGain();
+  gain.gain.value = volume;
+  src.connect(gain);
+  gain.connect(sfx.ctx.destination);
+  src.start();
+}
+function updateSfxUI() {
+  document.getElementById('sfxBtn').textContent = sfxMuted ? '\u{1F507}' : '\u{1F50A}';
+  document.getElementById('sfxLine').innerHTML = `Sound: <u>${sfxMuted ? 'off' : 'on'}</u>`;
+}
+function toggleSfx() {
+  sfxMuted = !sfxMuted;
+  try { localStorage.setItem(SFX_KEY, sfxMuted ? '1' : '0'); } catch (e) {}
+  updateSfxUI();
+}
+// browsers only allow audio after a user gesture
+['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
+  document.addEventListener(ev, sfxInit, { once: true, passive: true }));
+// every GUI button gets a click sound
+document.addEventListener('click', e => {
+  if (e.target.closest && e.target.closest('button, .menu-btn, .name-line')) playSfx('click', 0.6);
+}, true);
+updateSfxUI();
+
 /* ---- Saved player name (stored only on this device) ---- */
 const NAME_KEY = 'ttt_player_name';
 function loadSavedName() {
@@ -1043,6 +1098,7 @@ function onOnlineCount(n) {
   document.getElementById('onlineGame').textContent = txt;
 }
 function setNetUI(on) {
+  document.getElementById('sfxBtn').style.display = on ? '' : 'none';
   document.getElementById('onlinePill').style.display = on ? 'inline-flex' : 'none';
   document.getElementById('clockbox').style.display = on ? 'flex' : 'none';
   document.getElementById('chatBtn').style.display = on ? '' : 'none';
@@ -1481,6 +1537,7 @@ function startMoves(round, reset = false) {
     count = all.length;
 
     const added = all.filter(m => m.n > lastN);
+    const initial = first;
     if (first) {
       first = false;
       if (role === 'spectator') {
@@ -1499,7 +1556,7 @@ function startMoves(round, reset = false) {
         return;
       }
     }
-    added.forEach(m => { lastN = m.n; onMoveMade({ gx: m.gx, gy: m.gy, symbol: m.symbol }); });
+    added.forEach(m => { lastN = m.n; onMoveMade({ gx: m.gx, gy: m.gy, symbol: m.symbol, silent: initial }); });
   }, err => console.error(err));
 }
 
