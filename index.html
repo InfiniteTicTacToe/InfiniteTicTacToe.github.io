@@ -1,65 +1,219 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Infinite Tic-Tac-Toe (Touch Improved)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Infinite Tic-Tac-Toe</title>
 <style>
-  html,body{height:100%;margin:0}
-  body{display:flex;flex-direction:column;font-family:Arial, sans-serif;background:#f5f5f5}
-  #topbar{height:48px;display:flex;align-items:center;padding:6px 12px;gap:12px}
+  * { box-sizing: border-box; }
+  html,body{height:100%;margin:0;overflow:hidden;touch-action:none}
+  body{display:flex;flex-direction:column;font-family:'Segoe UI', Arial, sans-serif;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:#fff}
+  
+  .screen { display:none; flex-direction:column; align-items:center; justify-content:center; height:100%; width:100%; position:absolute; top:0; left:0; }
+  .screen.active { display:flex; }
+  
+  .grid-bg {
+    background-color: #fff;
+    background-image: linear-gradient(#e0e0e0 1px, transparent 1px), linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+    background-size: 49px 49px;
+  }
+  #startMenu { }
+  #startMenu h1 { font-size:2.5rem; margin-bottom:0.5rem; color:#333; }
+  #startMenu .subtitle { font-size:1rem; color:#666; margin-bottom:2rem; }
+  
+  .menu-btn { 
+    padding:16px 48px; margin:10px; font-size:1.2rem; border:none; border-radius:12px; 
+    cursor:pointer; transition:all 0.3s; font-weight:600; min-width:220px;
+  }
+  .menu-btn.primary { background:#333; color:#fff; }
+  .menu-btn.primary:hover { transform:scale(1.05); box-shadow:0 8px 25px rgba(0,0,0,0.2); }
+  .menu-btn.secondary { background:#fff; color:#333; border:2px solid #ccc; }
+  .menu-btn.secondary:hover { background:#f5f5f5; }
+  .menu-btn.danger { background:#e74c3c; color:#fff; }
+  .menu-btn.danger:hover { background:#c0392b; }
+  .menu-btn.small { padding:10px 24px; font-size:1rem; min-width:auto; }
+  
+  #waitingRoom { }
+  #waitingRoom h2 { margin-bottom:1.5rem; color:#333; }
+  .room-container { background:rgba(255,255,255,0.9); border-radius:16px; padding:16px; max-width:450px; width:95%; border:1px solid #ddd; max-height:85vh; overflow-y:auto; }
+  .room-section { margin:12px 0; }
+  .room-section-title { font-size:0.85rem; font-weight:600; color:#666; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px; }
+  .room-list { max-height:150px; overflow-y:auto; }
+  .room-item { 
+    background:#f5f5f5; padding:10px 12px; margin:6px 0; border-radius:8px; 
+    display:flex; justify-content:space-between; align-items:center; color:#333; gap:8px;
+  }
+  .room-item-info { flex:1; min-width:0; }
+  .room-item-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .room-item-details { font-size:0.8rem; color:#666; }
+  .room-item button { padding:6px 12px; border:none; border-radius:6px; background:#333; color:#fff; cursor:pointer; font-weight:600; font-size:0.85rem; white-space:nowrap; }
+  .room-item button:hover { background:#555; }
+  .room-item button.watch { background:#2d63e0; }
+  .room-item button.watch:hover { background:#1a4fc0; }
+  .no-rooms { text-align:center; opacity:0.7; padding:12px; color:#333; font-size:0.9rem; }
+  
+  .input-group { margin:16px 0; width:100%; }
+  .input-group label { display:block; margin-bottom:8px; font-weight:600; color:#333; }
+  .input-group input { 
+    width:100%; padding:12px 16px; border:none; border-radius:8px; font-size:1rem; 
+    background:rgba(255,255,255,0.9); color:#333;
+  }
+  
+  .hosting-info { text-align:center; padding:20px; color:#333; }
+  .hosting-info .room-code { font-size:2rem; font-weight:700; letter-spacing:4px; margin:16px 0; }
+  .hosting-info .waiting-text { opacity:0.8; color:#666; }
+  .spinner { display:inline-block; width:20px; height:20px; border:3px solid rgba(0,0,0,0.1); border-top-color:#333; border-radius:50%; animation:spin 1s linear infinite; margin-left:10px; vertical-align:middle; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  
+  #gameScreen { background:#f5f5f5; }
+  #topbar{height:48px;display:flex;align-items:center;padding:6px 12px;gap:12px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.1);width:100%;position:absolute;top:0;left:0;z-index:10}
   #scorebox{background:#ebebeb;padding:6px 10px;border-radius:6px;display:flex;gap:16px;align-items:center}
   #scoreX{color:#dc3737;font-weight:700}
   #scoreO{color:#2d63e0;font-weight:700}
-  #newGame{padding:6px 10px;border-radius:6px;background:#e0e0e0;border:0;cursor:pointer}
-  #canvasWrap{flex:1;position:relative}
-  canvas{display:block;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.08);touch-action:none}
-  #hint{position:absolute;left:8px;bottom:46px;color:#333;background:rgba(255,255,255,0.85);padding:6px 8px;border-radius:6px;font-size:13px}
-  #turnDisplay{position:absolute;left:8px;bottom:8px;font-weight:700;padding:6px 8px;border-radius:6px}
+  .topbar-btn{padding:8px 14px;border-radius:6px;background:#e0e0e0;border:0;cursor:pointer;font-size:14px;color:#333}
+  .topbar-btn:hover{background:#d0d0d0}
+  .topbar-btn.quit{background:#e74c3c;color:#fff}
+  .topbar-btn.quit:hover{background:#c0392b}
+  #canvasWrap{flex:1;position:relative;touch-action:none;margin-top:48px;height:calc(100% - 48px)}
+  canvas{display:block;background:#fff;touch-action:none}
+  #hint{position:absolute;left:8px;bottom:46px;color:#333;background:rgba(255,255,255,0.85);padding:6px 8px;border-radius:6px;font-size:12px;max-width:calc(100% - 24px)}
+  #turnDisplay{position:absolute;left:8px;bottom:8px;font-weight:700;padding:6px 8px;border-radius:6px;color:#333}
+  #opponentInfo{position:absolute;right:8px;bottom:8px;background:rgba(255,255,255,0.9);padding:6px 12px;border-radius:6px;font-size:13px;color:#333}
+  
+  .overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:100; }
+  .overlay.active { display:flex; }
+  .overlay-content { background:#fff; color:#333; padding:32px; border-radius:16px; text-align:center; max-width:90%; }
+  .overlay-content h2 { margin:0 0 16px 0; }
+  .overlay-content .buttons { display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap; }
+  
+  @media (max-width: 600px) {
+    #startMenu h1 { font-size:1.8rem; }
+    .menu-btn { padding:14px 36px; font-size:1rem; min-width:180px; }
+    #topbar{padding:4px 8px;gap:8px}
+    #scorebox{padding:4px 8px;gap:10px;font-size:14px}
+    #hint{font-size:11px;bottom:42px}
+    #waitingRoom h2 { font-size:1.3rem; margin-bottom:1rem; }
+    .room-container { padding:12px; width:95%; }
+    .room-item { padding:8px 10px; }
+    .room-item button { padding:6px 10px; font-size:0.8rem; }
+    .input-group input { padding:10px 12px; }
+  }
 </style>
 </head>
 <body>
-  <div id="topbar">
-    <div id="scorebox">
-      <div id="scoreX">X : 0</div>
-      <div id="scoreO">O : 0</div>
+  <div id="startMenu" class="screen active grid-bg">
+    <h1>Infinite Tic-Tac-Toe</h1>
+    <div class="subtitle">Get 5 in a row to win!</div>
+    <button class="menu-btn primary" onclick="startSingleplayer()">Singleplayer</button>
+    <button class="menu-btn secondary" onclick="showWaitingRoom()">Multiplayer</button>
+  </div>
+
+  <div id="waitingRoom" class="screen grid-bg">
+    <h2>Multiplayer</h2>
+    <div class="room-container">
+      <div id="lobbyView">
+        <div class="input-group">
+          <label>Your Name</label>
+          <input type="text" id="playerName" placeholder="Enter your name" maxlength="20" value="Player">
+        </div>
+        <button class="menu-btn primary" style="width:100%;margin:12px 0 8px 0" onclick="hostGame()">Host Game</button>
+        
+        <div class="room-section">
+          <div class="room-section-title">Waiting for Players</div>
+          
+          <div class="room-list" id="waitingList">
+            <div class="no-rooms">No games waiting...</div>
+          </div>
+        </div>
+        
+        <div class="room-section">
+          <div class="room-section-title">Ongoing Games (Spectate)</div>
+          <div class="room-list" id="ongoingList">
+            <div class="no-rooms">No games in progress...</div>
+          </div>
+        </div>
+        
+        <button class="menu-btn secondary" style="width:100%;margin-top:8px" onclick="backToMenu()">Back</button>
+      </div>
+      
+      <div id="hostingView" style="display:none">
+        <div class="hosting-info">
+          <div>Your Room Code:</div>
+          <div class="room-code" id="roomCode">----</div>
+          <div class="waiting-text">Waiting for opponent<span class="spinner"></span></div>
+        </div>
+        <button class="menu-btn danger" style="width:100%;margin-top:20px" onclick="cancelHost()">Cancel</button>
+      </div>
     </div>
-    <button id="newGame">New Game</button>
-    <div style="flex:1"></div>
-    <div>Zoom: <span id="zoomLabel">1.00x</span></div>
   </div>
 
-  <div id="canvasWrap">
-    <canvas id="c"></canvas>
-    <div id="hint">Pan: drag · Pinch to zoom · Tap = place · Tap arrow POINTER → teleport</div>
-    <div id="turnDisplay"></div>
+  <div id="gameScreen" class="screen">
+    <div id="topbar">
+      <div id="scorebox">
+        <div id="scoreX">X : 0</div>
+        <div id="scoreO">O : 0</div>
+      </div>
+      <button class="topbar-btn" id="newGameBtn" onclick="handleNewGame()">New Game</button>
+      <div style="flex:1"></div>
+      <div style="font-size:13px;color:#333">Zoom: <span id="zoomLabel">1.00x</span></div>
+      <button class="topbar-btn quit" onclick="quitGame()">Quit</button>
+    </div>
+
+    <div id="canvasWrap">
+      <canvas id="c"></canvas>
+      <div id="hint">
+        <span class="desktop-hint">Right-drag pan | Wheel zoom | Left-click place | Click arrow POINTER teleport</span>
+        <span class="mobile-hint">Tap to place X/O | Pinch to move & zoom | Tap arrow teleport</span>
+      </div>
+      <div id="turnDisplay"></div>
+      <div id="opponentInfo" style="display:none"></div>
+    </div>
   </div>
 
-<!-- decimal.js CDN -->
+  <div id="gameOverOverlay" class="overlay">
+    <div class="overlay-content">
+      <h2 id="gameOverText">Game Over!</h2>
+      <div class="buttons">
+        <button class="menu-btn primary small" onclick="handleRematch()">Play Again</button>
+        <button class="menu-btn secondary small" onclick="quitGame()">Quit</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="opponentLeftOverlay" class="overlay">
+    <div class="overlay-content">
+      <h2>Opponent Left</h2>
+      <p>Your opponent has disconnected.</p>
+      <div class="buttons">
+        <button class="menu-btn primary small" onclick="backToMenu()">Back to Menu</button>
+      </div>
+    </div>
+  </div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.4.3/decimal.min.js"></script>
 
 <script>
-/* Touch & pointer friendly Gomoku
-   Changes (summary):
-   - Pointer-based input (pointerdown/move/up) to unify mouse & touch
-   - Single-finger drag to pan (mobile), two-finger pinch to zoom
-   - Tap to place piece (short press without dragging)
-   - Ghost (semi-transparent) X/O drawn on hover/touch cell
-   - Arrow hit testing supports taps on mobile
-   - touch-action:none on canvas to enable custom gestures
-*/
+let gameMode = null;
+let mySymbol = null;
+let opponentName = null;
+let isMyTurn = false;
+let currentRoomId = null;
+let isSpectating = false;
 
-// ---------- Config ----------
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-let WIDTH = window.innerWidth;
-let HEIGHT = window.innerHeight - document.getElementById('topbar').offsetHeight;
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
+let WIDTH, HEIGHT;
+function resizeCanvas() {
+  WIDTH = window.innerWidth;
+  HEIGHT = window.innerHeight - 48;
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+}
+resizeCanvas();
 
-const CELL_BASE = 48;            // base pixel per cell at zoom 1
-let ZOOM = new Decimal(1);       // Decimal
+const CELL_BASE = 48;
+let ZOOM = new Decimal(1);
 const ZOOM_MIN = new Decimal(0.1);
 const ZOOM_MAX = new Decimal(5);
 
@@ -68,58 +222,51 @@ const ARROW_MAX = 150;
 const ARROW_SCALE_DIST = 20.0;
 
 const COLORS = {
-  grid: '#c8c8c8',
+  grid: '#e0e0e0',
   bg: '#ffffff',
   X: '#dc3737',
   O: '#2d63e0',
   hover: '#50c970',
-  hoverGhost: 'rgba(80,201,112,0.35)',
   win: '#0aa050',
   uiBg: '#ebebeb'
 };
 
-// ---------- Game state ----------
-let board = new Map(); // key "gx,gy" -> 'X'/'O'
+let board = new Map();
 let starter = 'X';
 let current = starter;
-let last_winner = null;
 let score = { X: 0, O: 0 };
 
-let camera_x = new Decimal(WIDTH / 2);   // pixel of grid origin (top-left of cell (0,0))
+let camera_x = new Decimal(WIDTH / 2);
 let camera_y = new Decimal(HEIGHT / 2);
 
-let winner_line = [];  // [ {gx,gy}, {gx,gy} ] endpoints
+let winner_line = [];
 let game_over = false;
 
-let arrow_hit_map = new Map(); // key "gx,gy" -> {x,y,r}
+let arrow_hit_map = new Map();
+let lastOpponentMove = null;
 
-// pointer tracking for touch/mouse
-const pointers = new Map(); // pointerId -> {x,y}
-let lastTapInfo = null; // {time, x, y, gx, gy}
-let pinchStart = null; // {dist, zoom, centerX, centerY}
-let isPanning = false;
-let panStart = null; // {x,y, camera_x, camera_y}
-let hoverCell = null; // {gx,gy}
-let ghostAlpha = 0.45; // transparency for ghost piece
-
-// DOM elements
 const scoreXEl = document.getElementById('scoreX');
 const scoreOEl = document.getElementById('scoreO');
-const newGameBtn = document.getElementById('newGame');
 const zoomLabel = document.getElementById('zoomLabel');
 const turnDisplay = document.getElementById('turnDisplay');
+const hintEl = document.getElementById('hint');
+const opponentInfo = document.getElementById('opponentInfo');
 
 Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
 
-// ---------- Helpers ----------
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isTouchDevice) {
+  hintEl.querySelector('.desktop-hint').style.display = 'none';
+} else {
+  hintEl.querySelector('.mobile-hint').style.display = 'none';
+}
+
 function cellSize() { return ZOOM.mul(CELL_BASE); }
 function gridKey(gx, gy){ return gx + ',' + gy; }
 
 function gridToScreenTopLeftDec(gx, gy){
   const s = cellSize();
-  const x = new Decimal(gx).mul(s).plus(camera_x);
-  const y = new Decimal(gy).mul(s).plus(camera_y);
-  return {x, y};
+  return { x: new Decimal(gx).mul(s).plus(camera_x), y: new Decimal(gy).mul(s).plus(camera_y) };
 }
 function gridToScreenCenterDec(gx, gy){
   const tl = gridToScreenTopLeftDec(gx, gy);
@@ -134,9 +281,7 @@ function screenToGridDec(mx, my){
 }
 
 function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-function toNum(dec){ if (Decimal.isDecimal(dec)) return Number(dec.toFixed(8)); return Number(new Decimal(dec).toFixed(8)); }
 
-// ---------- Win detection (unchanged) ----------
 const directions = [[1,0],[0,1],[1,1],[1,-1]];
 function checkWinAndLine(gx, gy, player){
   for (let d=0; d<directions.length; d++){
@@ -155,28 +300,31 @@ function checkWinAndLine(gx, gy, player){
   return false;
 }
 
-// ---------- Drawing ----------
+function toNum(dec){
+  if (Decimal.isDecimal(dec)) return Number(dec.toFixed(8));
+  return Number(new Decimal(dec).toFixed(8));
+}
+
 function drawGrid(){
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0,0,WIDTH,HEIGHT);
+  
   ctx.strokeStyle = COLORS.grid;
   ctx.lineWidth = 1;
 
   const sDec = cellSize();
-  const s = toNum(sDec);
-
-  const gx0 = Math.floor( toNum( Decimal.floor( new Decimal(-camera_x).minus(sDec).div(sDec) ) ) ) - 1;
-  const gx1 = Math.floor( toNum( Decimal.floor( new Decimal(WIDTH).minus(camera_x).div(sDec) ) ) ) + 1;
-  const gy0 = Math.floor( toNum( Decimal.floor( new Decimal(-camera_y).minus(sDec).div(sDec) ) ) ) - 1;
-  const gy1 = Math.floor( toNum( Decimal.floor( new Decimal(HEIGHT).minus(camera_y).div(sDec) ) ) ) + 1;
+  const gx0 = Math.floor(toNum(Decimal.floor(new Decimal(-camera_x).minus(sDec).div(sDec)))) - 1;
+  const gx1 = Math.floor(toNum(Decimal.floor(new Decimal(WIDTH).minus(camera_x).div(sDec)))) + 1;
+  const gy0 = Math.floor(toNum(Decimal.floor(new Decimal(-camera_y).minus(sDec).div(sDec)))) - 1;
+  const gy1 = Math.floor(toNum(Decimal.floor(new Decimal(HEIGHT).minus(camera_y).div(sDec)))) + 1;
 
   ctx.beginPath();
   for (let gx = gx0; gx <= gx1; gx++){
-    const x = toNum( new Decimal(gx).mul(sDec).plus(camera_x) );
+    const x = toNum(new Decimal(gx).mul(sDec).plus(camera_x));
     ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT);
   }
   for (let gy = gy0; gy <= gy1; gy++){
-    const y = toNum( new Decimal(gy).mul(sDec).plus(camera_y) );
+    const y = toNum(new Decimal(gy).mul(sDec).plus(camera_y));
     ctx.moveTo(0, y); ctx.lineTo(WIDTH, y);
   }
   ctx.stroke();
@@ -212,57 +360,57 @@ function drawPieces(){
 }
 
 function drawHover(mx, my){
-  if (game_over) return;
-  if (!hoverCell) return;
-  const {gx,gy} = hoverCell;
+  if (game_over || mx === null || my === null) return;
+  if (isSpectating) return;
+  if (gameMode === 'multiplayer' && !isMyTurn) return;
+  const {gx,gy} = screenToGridDec(mx, my);
   const tl = gridToScreenTopLeftDec(gx, gy);
   const x = toNum(tl.x), y = toNum(tl.y);
   const s = toNum(cellSize());
-  // outline
   ctx.strokeStyle = COLORS.hover;
-  ctx.lineWidth = Math.max(1, Math.round(2 * toNum(ZOOM)));
+  ctx.lineWidth = Math.max(1, Math.round(3 * toNum(ZOOM)));
   ctx.strokeRect(x+1, y+1, s-2, s-2);
-
-  // ghost piece (semi-transparent X or O) if empty
-  if (!board.has(gridKey(gx,gy))){
-    const center = gridToScreenCenterDec(gx, gy);
-    const cx = toNum(center.x), cy = toNum(center.y);
-    ctx.save();
-    ctx.globalAlpha = ghostAlpha;
-    if (current === 'X'){
-      ctx.strokeStyle = COLORS.X;
-      ctx.lineWidth = Math.max(1, Math.round(3 * toNum(ZOOM)));
-      const half = Math.max(6, (s/2) * 0.45);
-      ctx.beginPath();
-      ctx.moveTo(cx - half, cy - half);
-      ctx.lineTo(cx + half, cy + half);
-      ctx.moveTo(cx - half, cy + half);
-      ctx.lineTo(cx + half, cy - half);
-      ctx.stroke();
-    } else {
-      ctx.strokeStyle = COLORS.O;
-      ctx.lineWidth = Math.max(1, Math.round(3 * toNum(ZOOM)));
-      const radius = Math.max(4, Math.round((s/2) * 0.45));
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI*2);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
 }
 
 function drawWinnerLine(){
   if (!winner_line || winner_line.length < 2) return;
   const p1 = gridToScreenCenterDec(winner_line[0].gx, winner_line[0].gy);
   const p2 = gridToScreenCenterDec(winner_line[1].gx, winner_line[1].gy);
-  const x1 = toNum(p1.x), y1 = toNum(p1.y);
-  const x2 = toNum(p2.x), y2 = toNum(p2.y);
   ctx.strokeStyle = COLORS.win;
   ctx.lineWidth = Math.max(3, Math.round(6 * toNum(ZOOM)));
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
+  ctx.moveTo(toNum(p1.x), toNum(p1.y));
+  ctx.lineTo(toNum(p2.x), toNum(p2.y));
   ctx.stroke();
+}
+
+function drawOpponentMoveIndicator(){
+  if (!lastOpponentMove || gameMode !== 'multiplayer') return;
+  const { gx, gy, symbol } = lastOpponentMove;
+  const tl = gridToScreenTopLeftDec(gx, gy);
+  const s = toNum(cellSize());
+  const cx = toNum(tl.x) + s / 2;
+  const topY = toNum(tl.y);
+  
+  const arrowSize = Math.max(8, Math.min(20, s * 0.3));
+  const tipY = topY - 4;
+  const baseY = tipY - arrowSize;
+  
+  ctx.fillStyle = (symbol === 'X') ? COLORS.X : COLORS.O;
+  ctx.beginPath();
+  ctx.moveTo(cx, tipY);
+  ctx.lineTo(cx - arrowSize * 0.6, baseY);
+  ctx.lineTo(cx + arrowSize * 0.6, baseY);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function isCellVisible(gx, gy) {
+  const center = gridToScreenCenterDec(gx, gy);
+  const cx = toNum(center.x);
+  const cy = toNum(center.y);
+  const margin = 50;
+  return cx >= margin && cx <= WIDTH - margin && cy >= margin && cy <= HEIGHT - margin;
 }
 
 function computeAndDrawArrows(){
@@ -273,7 +421,7 @@ function computeAndDrawArrows(){
     const [gx,gy] = key.split(',').map(Number);
     const center = gridToScreenCenterDec(gx, gy);
     const px = toNum(center.x), py = toNum(center.y);
-    if (px >= 0 && px <= WIDTH && py >= 0 && py <= HEIGHT) continue; // visible
+    if (px >= 0 && px <= WIDTH && py >= 0 && py <= HEIGHT) continue;
     const dx = px - cx, dy = py - cy;
     const dist = Math.hypot(dx, dy);
     if (dist === 0) continue;
@@ -304,176 +452,77 @@ function computeAndDrawArrows(){
     ctx.lineTo(right.x, right.y);
     ctx.closePath();
     ctx.fill();
-    const hitRadius = Math.max(18, Math.round(size * 0.55)); // bigger on touch
-    arrow_hit_map.set(key, {x: tip.x, y: tip.y, r: hitRadius});
+    arrow_hit_map.set(key, {x: tip.x, y: tip.y, r: Math.max(12, Math.round(size * 0.5))});
   }
 }
 
-// ---------- UI updates ----------
 function updateUI(){
   scoreXEl.textContent = `X : ${score.X}`;
   scoreOEl.textContent = `O : ${score.O}`;
   zoomLabel.textContent = `${toNum(ZOOM).toFixed(2)}x`;
   turnDisplay.style.background = 'rgba(255,255,255,0.9)';
   turnDisplay.style.color = (current === 'X') ? COLORS.X : COLORS.O;
-  turnDisplay.style.padding = '6px 8px';
-  turnDisplay.style.borderRadius = '6px';
-  turnDisplay.textContent = `${current} turns`;
+  
+  if (isSpectating) {
+    turnDisplay.textContent = `${current}'s turn`;
+  } else if (gameMode === 'multiplayer') {
+    if (isMyTurn) {
+      turnDisplay.textContent = `Your turn (${mySymbol})`;
+    } else {
+      turnDisplay.textContent = `${opponentName}'s turn`;
+    }
+  } else {
+    turnDisplay.textContent = `${current}'s turn`;
+  }
 }
 
-// ---------- New game ----------
+function resetGame(){
+  board.clear();
+  winner_line = [];
+  game_over = false;
+  current = starter;
+  camera_x = new Decimal(WIDTH / 2);
+  camera_y = new Decimal(HEIGHT / 2);
+  ZOOM = new Decimal(1);
+}
+
 function newGame(byWin=null){
   board.clear();
   winner_line = [];
   game_over = false;
   if (byWin === 'X' || byWin === 'O'){
-    const loser = (byWin === 'X') ? 'O' : 'X';
-    starter = loser;
-    last_winner = byWin;
-  } else { last_winner = null; }
+    starter = (byWin === 'X') ? 'O' : 'X';
+  }
   current = starter;
 }
 
-// ---------- Input handling (pointer & touch friendly) ----------
-canvas.addEventListener('contextmenu', e => { e.preventDefault(); }); // disable context menu
-
-function getCanvasPos(clientX, clientY){
-  const rect = canvas.getBoundingClientRect();
-  return { x: clientX - rect.left, y: clientY - rect.top };
-}
-
-canvas.addEventListener('pointerdown', (e) => {
-  canvas.setPointerCapture(e.pointerId);
-  const pos = getCanvasPos(e.clientX, e.clientY);
-  pointers.set(e.pointerId, pos);
-
-  if (pointers.size === 1){
-    // potential tap or pan start
-    isPanning = true;
-    panStart = { x: pos.x, y: pos.y, camera_x: camera_x, camera_y: camera_y };
-  } else if (pointers.size === 2){
-    // start pinch
-    const ids = Array.from(pointers.keys());
-    const a = pointers.get(ids[0]);
-    const b = pointers.get(ids[1]);
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const dist = Math.hypot(dx, dy);
-    const centerX = (a.x + b.x) / 2, centerY = (a.y + b.y) / 2;
-    pinchStart = { dist, zoom: ZOOM, centerX, centerY };
-    isPanning = false; // pinch overrides single-finger pan
-  }
-
-  // update hover cell immediately
-  hoverFromPos(pos.x, pos.y);
-});
-
-canvas.addEventListener('pointermove', (e) => {
-  if (!pointers.has(e.pointerId)) return;
-  const pos = getCanvasPos(e.clientX, e.clientY);
-  pointers.set(e.pointerId, pos);
-
-  if (pointers.size === 1 && isPanning && panStart){
-    const dx = pos.x - panStart.x;
-    const dy = pos.y - panStart.y;
-    // if user moved, update camera
-    camera_x = panStart.camera_x.plus(dx);
-    camera_y = panStart.camera_y.plus(dy);
-  } else if (pointers.size === 2 && pinchStart){
-    const ids = Array.from(pointers.keys());
-    const a = pointers.get(ids[0]);
-    const b = pointers.get(ids[1]);
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const dist = Math.hypot(dx, dy);
-    // compute new zoom factor about midpoint
-    const centerX = (a.x + b.x) / 2, centerY = (a.y + b.y) / 2;
-    const scale = dist / pinchStart.dist;
-    const oldZoom = ZOOM;
-    ZOOM = Decimal.max(ZOOM_MIN, Decimal.min(ZOOM_MAX, pinchStart.zoom.mul(scale)));
-    // keep center point stable
-    camera_x = new Decimal(centerX).minus( new Decimal(centerX).minus(camera_x).div(oldZoom).mul(ZOOM) );
-    camera_y = new Decimal(centerY).minus( new Decimal(centerY).minus(camera_y).div(oldZoom).mul(ZOOM) );
-  } else if (pointers.size === 1){
-    // update hover
-    hoverFromPos(pos.x, pos.y);
-  }
-});
-
-canvas.addEventListener('pointerup', (e) => {
-  canvas.releasePointerCapture(e.pointerId);
-  if (!pointers.has(e.pointerId)) return;
-  const pos = pointers.get(e.pointerId);
-  // handle tap: if small movement since pointerdown and short time, treat as tap
-  // We'll consider it a tap if movement small (<=8px) and no pinch occurred
-  let treatedAsTap = false;
-  if (!pinchStart){
-    if (panStart){
-      const dx = pos.x - panStart.x; const dy = pos.y - panStart.y;
-      const moved = Math.hypot(dx, dy);
-      if (moved <= 8){
-        // may be tap — check arrow hit first
-        const arrowKey = hitTestArrows(pos.x, pos.y);
-        if (arrowKey){
-          // teleport to arrow target
-          const [gx,gy] = arrowKey.split(',').map(Number);
-          const s = cellSize();
-          camera_x = new Decimal(WIDTH/2).minus( new Decimal(gx).mul(s).plus(s.div(2)) );
-          camera_y = new Decimal(HEIGHT/2).minus( new Decimal(gy).mul(s).plus(s.div(2)) );
-          treatedAsTap = true;
-        } else {
-          // place piece
-          if (!game_over){
-            const { gx, gy } = screenToGridDec(pos.x, pos.y);
-            if (!board.has(gridKey(gx,gy))){
-              board.set(gridKey(gx,gy), current);
-              if (checkWinAndLine(gx, gy, current)){
-                score[current] += 1;
-                game_over = true;
-                const loser = (current === 'X') ? 'O' : 'X';
-                starter = loser; last_winner = current;
-              }
-              if (!game_over) current = (current === 'X') ? 'O' : 'X';
-            }
-          }
-          treatedAsTap = true;
-        }
-      }
+function placePiece(mx, my) {
+  if (game_over) return false;
+  if (isSpectating) return false;
+  if (gameMode === 'multiplayer' && !isMyTurn) return false;
+  
+  const {gx,gy} = screenToGridDec(mx, my);
+  const key = gridKey(gx,gy);
+  
+  if (board.has(key)) return false;
+  
+  if (gameMode === 'multiplayer') {
+    Net.makeMove(gx, gy);
+    return true;
+  } else {
+    board.set(key, current);
+    if (checkWinAndLine(gx, gy, current)){
+      score[current] += 1;
+      game_over = true;
+      starter = (current === 'X') ? 'O' : 'X';
+      showGameOver(current);
     }
+    if (!game_over) current = (current === 'X') ? 'O' : 'X';
+    return true;
   }
-
-  // clean up pointer
-  pointers.delete(e.pointerId);
-  if (pointers.size < 2){ pinchStart = null; }
-  if (pointers.size === 0){ isPanning = false; panStart = null; }
-
-  // update hover
-  if (pointers.size === 0){ hoverCell = null; }
-
-});
-
-canvas.addEventListener('pointercancel', (e) => { pointers.delete(e.pointerId); pinchStart=null; isPanning=false; panStart=null; hoverCell=null; });
-
-// mouse wheel zoom (desktop)
-canvas.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const delta = -Math.sign(e.deltaY);
-  const factor = 1 + 0.12 * delta;
-  const oldZoom = ZOOM;
-  ZOOM = Decimal.max(ZOOM_MIN, Decimal.min(ZOOM_MAX, ZOOM.mul(factor)));
-  camera_x = new Decimal(mx).minus( new Decimal(mx).minus(camera_x).div(oldZoom).mul(ZOOM) );
-  camera_y = new Decimal(my).minus( new Decimal(my).minus(camera_y).div(oldZoom).mul(ZOOM) );
-  updateUI();
-}, { passive: false });
-
-// helper: compute hover cell from canvas pos
-function hoverFromPos(x, y){
-  const { gx, gy } = screenToGridDec(x, y);
-  hoverCell = { gx, gy };
 }
 
-function hitTestArrows(mx, my){
+function checkArrowHit(mx, my) {
   for (const [key, val] of arrow_hit_map.entries()){
     const dx = mx - val.x, dy = my - val.y;
     if (dx*dx + dy*dy <= val.r * val.r) return key;
@@ -481,39 +530,788 @@ function hitTestArrows(mx, my){
   return null;
 }
 
-newGameBtn.addEventListener('click', ()=> newGame(null));
-
-// handle resize
-window.addEventListener('resize', ()=>{
-  WIDTH = window.innerWidth;
-  HEIGHT = window.innerHeight - document.getElementById('topbar').offsetHeight;
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
-  updateUI();
-});
-
-// ---------- Main render loop ----------
-function loop(){
-  drawGrid();
-  drawPieces();
-  // draw hover / ghost if pointer present or mouse hovering
-  drawHover(canvas._mouseX || (pointers.size ? Array.from(pointers.values())[0].x : 0), canvas._mouseY || (pointers.size ? Array.from(pointers.values())[0].y : 0));
-  drawWinnerLine();
-  computeAndDrawArrows();
-  updateUI();
-  requestAnimationFrame(loop);
+function teleportToCell(key) {
+  const [gx,gy] = key.split(',').map(Number);
+  const s = cellSize();
+  camera_x = new Decimal(WIDTH/2).minus(new Decimal(gx).mul(s).plus(s.div(2)));
+  camera_y = new Decimal(HEIGHT/2).minus(new Decimal(gy).mul(s).plus(s.div(2)));
 }
 
-// track mouse position for desktop hover
-canvas.addEventListener('mousemove', (e)=> {
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+let isRightDown = false;
+let dragging = false;
+let dragStart = null;
+
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 2){
+    isRightDown = true;
+    dragging = true;
+    dragStart = {x: e.clientX, y: e.clientY};
+  } else if (e.button === 0){
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const clickedArrow = checkArrowHit(mx, my);
+    if (clickedArrow){ teleportToCell(clickedArrow); return; }
+    placePiece(mx, my);
+  }
+});
+
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 2){ isRightDown = false; dragging = false; }
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (dragging && isRightDown && dragStart){
+    camera_x = camera_x.plus(e.clientX - dragStart.x);
+    camera_y = camera_y.plus(e.clientY - dragStart.y);
+    dragStart = {x: e.clientX, y: e.clientY};
+  }
+});
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const factor = 1 + 0.12 * (-Math.sign(e.deltaY));
+  const oldZoom = ZOOM;
+  ZOOM = Decimal.max(ZOOM_MIN, Decimal.min(ZOOM_MAX, ZOOM.mul(factor)));
+  camera_x = new Decimal(mx).minus(new Decimal(mx).minus(camera_x).div(oldZoom).mul(ZOOM));
+  camera_y = new Decimal(my).minus(new Decimal(my).minus(camera_y).div(oldZoom).mul(ZOOM));
+  updateUI();
+}, { passive: false });
+
+let touchState = { 
+  startX: 0, startY: 0, 
+  hasMoved: false, 
+  isPinching: false,
+  initialPinchDist: 0, 
+  initialZoom: null, 
+  pinchCenterX: 0, pinchCenterY: 0,
+  lastPinchCenterX: 0, lastPinchCenterY: 0
+};
+const TAP_THRESHOLD = 15;
+
+function getTouchPos(touch) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && !touchState.isPinching) {
+    const pos = getTouchPos(e.touches[0]);
+    touchState.startX = pos.x;
+    touchState.startY = pos.y;
+    touchState.hasMoved = false;
+    canvas._mouseX = pos.x;
+    canvas._mouseY = pos.y;
+  } else if (e.touches.length === 2) {
+    touchState.isPinching = true;
+    touchState.hasMoved = true;
+    touchState.initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    touchState.initialZoom = ZOOM;
+    const rect = canvas.getBoundingClientRect();
+    touchState.pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
+    touchState.pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
+    touchState.lastPinchCenterX = touchState.pinchCenterX;
+    touchState.lastPinchCenterY = touchState.pinchCenterY;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    touchState.isPinching = true;
+    touchState.hasMoved = true;
+    const rect = canvas.getBoundingClientRect();
+    const currentCenterX = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
+    const currentCenterY = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
+    
+    camera_x = camera_x.plus(currentCenterX - touchState.lastPinchCenterX);
+    camera_y = camera_y.plus(currentCenterY - touchState.lastPinchCenterY);
+    touchState.lastPinchCenterX = currentCenterX;
+    touchState.lastPinchCenterY = currentCenterY;
+    
+    const newDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    if (touchState.initialPinchDist > 0 && touchState.initialZoom) {
+      const oldZoom = ZOOM;
+      ZOOM = Decimal.max(ZOOM_MIN, Decimal.min(ZOOM_MAX, touchState.initialZoom.mul(newDist / touchState.initialPinchDist)));
+      camera_x = new Decimal(currentCenterX).minus(new Decimal(currentCenterX).minus(camera_x).div(oldZoom).mul(ZOOM));
+      camera_y = new Decimal(currentCenterY).minus(new Decimal(currentCenterY).minus(camera_y).div(oldZoom).mul(ZOOM));
+      updateUI();
+    }
+  } else if (e.touches.length === 1 && !touchState.isPinching) {
+    const pos = getTouchPos(e.touches[0]);
+    const dist = Math.hypot(pos.x - touchState.startX, pos.y - touchState.startY);
+    if (dist > TAP_THRESHOLD) touchState.hasMoved = true;
+    canvas._mouseX = pos.x;
+    canvas._mouseY = pos.y;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 0) {
+    if (!touchState.hasMoved && !touchState.isPinching) {
+      const pos = { x: touchState.startX, y: touchState.startY };
+      const clickedArrow = checkArrowHit(pos.x, pos.y);
+      if (clickedArrow) { 
+        teleportToCell(clickedArrow); 
+      } else {
+        placePiece(pos.x, pos.y);
+      }
+    }
+    touchState.isPinching = false;
+    touchState.hasMoved = false;
+    touchState.initialPinchDist = 0;
+    touchState.initialZoom = null;
+  }
+  if (e.touches.length < 2) { 
+    touchState.initialPinchDist = 0; 
+    touchState.initialZoom = null; 
+  }
+  if (e.touches.length === 1) {
+    const pos = getTouchPos(e.touches[0]);
+    touchState.dragStartX = pos.x;
+    touchState.dragStartY = pos.y;
+    touchState.hasMoved = false;
+  }
+}, { passive: false });
+
+canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   canvas._mouseX = e.clientX - rect.left;
   canvas._mouseY = e.clientY - rect.top;
-  hoverFromPos(canvas._mouseX, canvas._mouseY);
 });
 
-updateUI();
+window.addEventListener('resize', () => { resizeCanvas(); updateUI(); });
+
+function loop(){
+  if (document.getElementById('gameScreen').classList.contains('active')) {
+    drawGrid();
+    drawPieces();
+    drawHover(canvas._mouseX || null, canvas._mouseY || null);
+    drawWinnerLine();
+    drawOpponentMoveIndicator();
+    computeAndDrawArrows();
+    updateUI();
+  }
+  requestAnimationFrame(loop);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startSingleplayer() {
+  gameMode = 'singleplayer';
+  mySymbol = null;
+  opponentName = null;
+  isMyTurn = true;
+  score = { X: 0, O: 0 };
+  resetGame();
+  opponentInfo.style.display = 'none';
+  document.getElementById('newGameBtn').style.display = '';
+  showScreen('gameScreen');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function netReady() {
+  if (!window.Net) { alert('Multiplayer is still loading, try again in a moment.'); return false; }
+  return true;
+}
+
+function showWaitingRoom() {
+  if (!netReady()) return;
+  document.getElementById('lobbyView').style.display = '';
+  document.getElementById('hostingView').style.display = 'none';
+  Net.watchLobby();
+  showScreen('waitingRoom');
+}
+
+/* ---- Callbacks invoked by the Firebase layer (module script below) ---- */
+function onRoomList(data) {
+  const waitingList = document.getElementById('waitingList');
+  const ongoingList = document.getElementById('ongoingList');
+
+  if (data.waiting && data.waiting.length > 0) {
+    waitingList.innerHTML = data.waiting.map(r => `
+      <div class="room-item">
+        <div class="room-item-info">
+          <div class="room-item-name">${escapeHtml(r.host_name)}'s game</div>
+        </div>
+        <button onclick="joinGame('${escapeHtml(r.id)}')">Join</button>
+      </div>
+    `).join('');
+  } else {
+    waitingList.innerHTML = '<div class="no-rooms">No games waiting...</div>';
+  }
+
+  if (data.ongoing && data.ongoing.length > 0) {
+    ongoingList.innerHTML = data.ongoing.map(r => `
+      <div class="room-item">
+        <div class="room-item-info">
+          <div class="room-item-name">${escapeHtml(r.host_name)} vs ${escapeHtml(r.guest_name)}</div>
+          <div class="room-item-details">${r.spectators} watching</div>
+        </div>
+        <button class="watch" onclick="spectateGame('${escapeHtml(r.id)}')">Watch</button>
+      </div>
+    `).join('');
+  } else {
+    ongoingList.innerHTML = '<div class="no-rooms">No games in progress...</div>';
+  }
+}
+
+function onRoomCreated(roomId) {
+  currentRoomId = roomId;
+  document.getElementById('roomCode').textContent = roomId.toUpperCase();
+  document.getElementById('lobbyView').style.display = 'none';
+  document.getElementById('hostingView').style.display = '';
+}
+
+function onJoinError(message) {
+  alert(message);
+}
+
+function onGameStart(data) {
+  gameMode = 'multiplayer';
+  isSpectating = false;
+  mySymbol = data.symbol;
+  opponentName = data.opponent_name;
+  isMyTurn = data.your_turn;
+  score = { X: 0, O: 0 };
+  resetGame();
+  current = 'X';
+  opponentInfo.style.display = '';
+  opponentInfo.textContent = `vs ${opponentName} | You: ${mySymbol}`;
+  document.getElementById('newGameBtn').style.display = 'none';
+  document.getElementById('opponentLeftOverlay').classList.remove('active');
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  showScreen('gameScreen');
+}
+
+function onMoveMade(data) {
+  const key = gridKey(data.gx, data.gy);
+  board.set(key, data.symbol);
+  current = (data.symbol === 'X') ? 'O' : 'X';
+  isMyTurn = (current === mySymbol);
+
+  if (isSpectating || data.symbol !== mySymbol) {
+    lastOpponentMove = { gx: data.gx, gy: data.gy, symbol: data.symbol };
+    if (!isCellVisible(data.gx, data.gy)) {
+      teleportToCell(key);
+    }
+  }
+
+  if (checkWinAndLine(data.gx, data.gy, data.symbol)) {
+    score[data.symbol] += 1;
+    game_over = true;
+    if (!isSpectating && data.symbol === mySymbol) {
+      Net.reportWin(mySymbol);
+    }
+    if (!isSpectating) {
+      showGameOver(data.symbol);
+    }
+  }
+}
+
+function onGameOver() {
+  game_over = true;
+}
+
+function onRematchStart(data) {
+  mySymbol = data.symbol;
+  isMyTurn = data.your_turn;
+  board.clear();
+  winner_line = [];
+  game_over = false;
+  current = 'X';
+  lastOpponentMove = null;
+  camera_x = new Decimal(WIDTH / 2);
+  camera_y = new Decimal(HEIGHT / 2);
+  ZOOM = new Decimal(1);
+  opponentInfo.textContent = `vs ${opponentName} | You: ${mySymbol}`;
+  document.getElementById('gameOverOverlay').classList.remove('active');
+}
+
+function onOpponentLeft() {
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  document.getElementById('opponentLeftOverlay').classList.add('active');
+}
+
+function onSpectateStart(data) {
+  gameMode = 'spectator';
+  isSpectating = true;
+  mySymbol = null;
+  isMyTurn = false;
+  score = { X: 0, O: 0 };
+  resetGame();
+
+  for (const [key, symbol] of Object.entries(data.board)) {
+    board.set(key, symbol);
+  }
+  current = data.current_turn;
+  if (data.winner && data.last) {
+    checkWinAndLine(data.last.gx, data.last.gy, data.last.symbol);
+    game_over = true;
+  }
+
+  opponentInfo.style.display = '';
+  opponentInfo.textContent = `${data.host_name} vs ${data.guest_name} (Spectating)`;
+  document.getElementById('newGameBtn').style.display = 'none';
+  showScreen('gameScreen');
+}
+
+function onGameEnded() {
+  document.getElementById('opponentLeftOverlay').classList.add('active');
+}
+
+/* ---- UI actions ---- */
+function playerName() {
+  return (document.getElementById('playerName').value.trim() || 'Player').slice(0, 20);
+}
+
+function hostGame() {
+  if (!netReady()) return;
+  Net.createRoom(playerName());
+}
+
+function joinGame(roomId) {
+  if (!netReady()) return;
+  Net.joinRoom(roomId, playerName());
+}
+
+function spectateGame(roomId) {
+  if (!netReady()) return;
+  Net.spectate(roomId);
+}
+
+function cancelHost() {
+  Net.leave().then(() => Net.watchLobby());
+  currentRoomId = null;
+  document.getElementById('lobbyView').style.display = '';
+  document.getElementById('hostingView').style.display = 'none';
+}
+
+function handleNewGame() {
+  if (gameMode === 'singleplayer') {
+    newGame(game_over ? current : null);
+    document.getElementById('gameOverOverlay').classList.remove('active');
+  }
+}
+
+function handleRematch() {
+  if (gameMode === 'multiplayer') {
+    Net.rematch();
+  } else {
+    newGame(current);
+    document.getElementById('gameOverOverlay').classList.remove('active');
+  }
+}
+
+function showGameOver(winner) {
+  const text = document.getElementById('gameOverText');
+  if (gameMode === 'multiplayer') {
+    text.textContent = (winner === mySymbol) ? 'You Win!' : 'You Lose!';
+  } else {
+    text.textContent = `${winner} Wins!`;
+  }
+  document.getElementById('gameOverOverlay').classList.add('active');
+}
+
+function quitGame() {
+  if ((gameMode === 'multiplayer' || isSpectating) && window.Net) {
+    Net.leave();
+  }
+  gameMode = null;
+  isSpectating = false;
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  document.getElementById('opponentLeftOverlay').classList.remove('active');
+  showScreen('startMenu');
+}
+
+function backToMenu() {
+  if (window.Net) Net.leave();
+  currentRoomId = null;
+  document.getElementById('opponentLeftOverlay').classList.remove('active');
+  showScreen('startMenu');
+}
+
 requestAnimationFrame(loop);
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot,
+  query, where, runTransaction, writeBatch, deleteField, increment
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDKoZi9aBvsVgmu4_vt_6NTOWL0goU3-vs",
+  authDomain: "infinite-tictactoe-cd43f.firebaseapp.com",
+  projectId: "infinite-tictactoe-cd43f",
+  storageBucket: "infinite-tictactoe-cd43f.firebasestorage.app",
+  messagingSenderId: "1048843248875",
+  appId: "1:1048843248875:web:0c7888b0958e9a7a03caae",
+  measurementId: "G-7TPP77KHK0"
+};
+
+const app = initializeApp(firebaseConfig);
+try { getAnalytics(app); } catch (e) { /* analytics is optional */ }
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const HEARTBEAT_MS = 10000;   // how often we say "still here"
+const STALE_MS = 45000;       // no heartbeat for this long = disconnected
+const CLEANUP_MS = 120000;    // abandoned rooms older than this get deleted
+
+let uid = null;
+const ready = signInAnonymously(auth).then(c => { uid = c.user.uid; }).catch(err => {
+  console.error(err);
+  alert('Could not sign in to Firebase. Make sure Anonymous sign-in is enabled in the Firebase console.');
+  throw err;
+});
+ready.catch(() => {});
+
+/* ---------- session state ---------- */
+let roomId = null, role = null;            // role: 'host' | 'guest' | 'spectator'
+let roomData = null, inGame = false, peerGone = false, movesRound = null;
+let unsubRoom = null, unsubMoves = null, hbTimer = null;
+
+const roomRef = id => doc(db, 'rooms', id);
+
+function randomId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(6)), x => chars[x % chars.length]).join('');
+}
+
+/* ---------- lobby ---------- */
+let unsubLobby = null, lobbySnap = null, lobbyTimer = null, lobbyTok = 0;
+const deleting = new Set();
+
+function watchLobby() {
+  stopLobby();
+  const tok = ++lobbyTok;
+  ready.then(() => {
+    if (tok !== lobbyTok) return;
+    const q = query(collection(db, 'rooms'), where('status', 'in', ['waiting', 'playing']));
+    unsubLobby = onSnapshot(q, snap => { lobbySnap = snap; renderLobby(); }, err => console.error(err));
+    lobbyTimer = setInterval(renderLobby, 5000);
+  }).catch(() => {});
+}
+
+function stopLobby() {
+  lobbyTok++;
+  if (unsubLobby) unsubLobby();
+  unsubLobby = null;
+  clearInterval(lobbyTimer);
+  lobbyTimer = null;
+  lobbySnap = null;
+}
+
+function renderLobby() {
+  if (!lobbySnap) return;
+  const now = Date.now();
+  const waiting = [], ongoing = [];
+  lobbySnap.forEach(d => {
+    const r = d.data();
+    const hostAge = now - (r.hostSeen || 0);
+    if (hostAge > CLEANUP_MS) {
+      if (!deleting.has(d.id)) { deleting.add(d.id); deleteDoc(d.ref).catch(() => {}); }
+      return;
+    }
+    const hostAlive = hostAge < STALE_MS;
+    if (r.status === 'waiting') {
+      if (hostAlive) waiting.push({ id: d.id, host_name: r.hostName });
+    } else if (r.status === 'playing') {
+      const guestAlive = now - (r.guestSeen || 0) < STALE_MS;
+      if (hostAlive || guestAlive) {
+        const specs = Object.values(r.specs || {}).filter(t => now - t < STALE_MS).length;
+        ongoing.push({ id: d.id, host_name: r.hostName, guest_name: r.guestName, spectators: specs });
+      }
+    }
+  });
+  onRoomList({ waiting, ongoing });
+}
+
+/* ---------- joining / hosting ---------- */
+async function createRoom(name) {
+  try {
+    await ready;
+    await leave();
+    const data = {
+      hostId: uid, hostName: name, guestId: null, guestName: null,
+      status: 'waiting', hostSymbol: 'X', guestSymbol: 'O',
+      currentTurn: 'X', moveCount: 0, round: 0, winner: null,
+      hostSeen: Date.now(), guestSeen: 0, specs: {}
+    };
+    let id = null;
+    for (let i = 0; i < 5 && !id; i++) {
+      const candidate = randomId();
+      const ok = await runTransaction(db, async tx => {
+        const s = await tx.get(roomRef(candidate));
+        if (s.exists()) return false;
+        tx.set(roomRef(candidate), data);
+        return true;
+      });
+      if (ok) id = candidate;
+    }
+    if (!id) { onJoinError('Could not create a room, please try again.'); return; }
+    stopLobby();
+    beginSession(id, 'host');
+    onRoomCreated(id);
+  } catch (e) {
+    console.error(e);
+    onJoinError('Could not create room. Is Firestore enabled for this project?');
+  }
+}
+
+async function joinRoom(id, name) {
+  try {
+    await ready;
+    await runTransaction(db, async tx => {
+      const s = await tx.get(roomRef(id));
+      if (!s.exists()) throw new Error('Room not found');
+      const r = s.data();
+      if (r.status !== 'waiting' || r.guestId) throw new Error('Room is full');
+      if (r.hostId === uid) throw new Error("You can't join your own game");
+      tx.update(roomRef(id), { guestId: uid, guestName: name, status: 'playing', guestSeen: Date.now() });
+    });
+  } catch (e) {
+    onJoinError(e.message && !e.code ? e.message : 'Could not join the game');
+    return;
+  }
+  stopLobby();
+  beginSession(id, 'guest');
+}
+
+async function spectate(id) {
+  try {
+    await ready;
+    const s = await getDoc(roomRef(id));
+    if (!s.exists()) { onJoinError('Game not found'); return; }
+    if (s.data().status !== 'playing') { onJoinError('Game is not in progress'); return; }
+    stopLobby();
+    beginSession(id, 'spectator');
+    updateDoc(roomRef(id), { ['specs.' + uid]: Date.now() }).catch(() => {});
+  } catch (e) {
+    console.error(e);
+    onJoinError('Could not watch this game');
+  }
+}
+
+function beginSession(id, r) {
+  stopSession();
+  roomId = id; role = r;
+  roomData = null; inGame = false; peerGone = false; movesRound = null;
+  unsubRoom = onSnapshot(roomRef(id), onRoom, err => console.error(err));
+  hbTimer = setInterval(heartbeat, HEARTBEAT_MS);
+}
+
+function stopSession() {
+  if (unsubRoom) unsubRoom();
+  if (unsubMoves) unsubMoves();
+  unsubRoom = unsubMoves = null;
+  clearInterval(hbTimer);
+  hbTimer = null;
+  roomId = null; role = null; roomData = null; inGame = false;
+}
+
+/* ---------- room state machine ---------- */
+function onRoom(snap) {
+  if (!snap.exists()) {
+    const r = role;
+    if (r === 'guest' && !peerGone) { peerGone = true; onOpponentLeft(); }
+    else if (r === 'spectator' && !peerGone) { peerGone = true; onGameEnded(); }
+    if (unsubMoves) { unsubMoves(); unsubMoves = null; }
+    return;
+  }
+  const r = snap.data();
+  const prev = roomData;
+  roomData = r;
+
+  if (role === 'host' || role === 'guest') {
+    const mySym = role === 'host' ? r.hostSymbol : r.guestSymbol;
+    if (r.status === 'playing') {
+      if (!inGame) {
+        inGame = true; peerGone = false;
+        onGameStart({
+          symbol: mySym,
+          opponent_name: role === 'host' ? r.guestName : r.hostName,
+          your_turn: r.currentTurn === mySym
+        });
+        startMoves(r.round);
+      } else if (prev && r.round !== prev.round) {
+        onRematchStart({ symbol: mySym, your_turn: r.currentTurn === mySym });
+        startMoves(r.round);
+      } else if (r.winner) {
+        onGameOver();
+      }
+    } else if (inGame) {
+      // guest left; room is back to "waiting"
+      inGame = false;
+      if (unsubMoves) { unsubMoves(); unsubMoves = null; }
+      onOpponentLeft();
+    }
+  } else if (role === 'spectator') {
+    if (r.status !== 'playing') {
+      if (!peerGone) { peerGone = true; onGameEnded(); }
+      if (unsubMoves) { unsubMoves(); unsubMoves = null; }
+      return;
+    }
+    if (!prev || r.round !== prev.round) startMoves(r.round);
+    else if (r.winner) onGameOver();
+  }
+}
+
+function startMoves(round) {
+  if (unsubMoves) unsubMoves();
+  movesRound = round;
+  let first = true;
+  const q = query(collection(db, 'rooms', roomId, 'moves'), where('round', '==', round));
+  unsubMoves = onSnapshot(q, snap => {
+    const added = snap.docChanges().filter(c => c.type === 'added').map(c => c.doc.data()).sort((a, b) => a.n - b.n);
+    if (first) {
+      first = false;
+      if (role === 'spectator') {
+        const b = {};
+        added.forEach(m => { b[m.gx + ',' + m.gy] = m.symbol; });
+        const last = added[added.length - 1] || null;
+        onSpectateStart({
+          host_name: roomData.hostName,
+          guest_name: roomData.guestName,
+          board: b,
+          current_turn: last ? (last.symbol === 'X' ? 'O' : 'X') : 'X',
+          winner: roomData.winner,
+          last: last ? { gx: last.gx, gy: last.gy, symbol: last.symbol } : null
+        });
+        return;
+      }
+    }
+    added.forEach(m => onMoveMade({ gx: m.gx, gy: m.gy, symbol: m.symbol }));
+  }, err => console.error(err));
+}
+
+/* ---------- gameplay ---------- */
+async function makeMove(gx, gy) {
+  if (!roomId || (role !== 'host' && role !== 'guest') || !Number.isFinite(gx) || !Number.isFinite(gy)) return;
+  const id = roomId, r0 = role;
+  try {
+    await runTransaction(db, async tx => {
+      const rs = await tx.get(roomRef(id));
+      if (!rs.exists()) return;
+      const r = rs.data();
+      const sym = r0 === 'host' ? r.hostSymbol : r.guestSymbol;
+      if (r.status !== 'playing' || r.winner || r.currentTurn !== sym) return;
+      const mref = doc(db, 'rooms', id, 'moves', `${r.round}_${gx},${gy}`);
+      const ms = await tx.get(mref);
+      if (ms.exists()) return;
+      const n = r.moveCount + 1;
+      tx.set(mref, { round: r.round, n, gx, gy, symbol: sym, by: uid });
+      tx.update(roomRef(id), { moveCount: n, currentTurn: sym === 'X' ? 'O' : 'X' });
+    });
+  } catch (e) { console.warn('move failed', e); }
+}
+
+async function reportWin(symbol) {
+  if (!roomId) return;
+  const id = roomId, round = movesRound;
+  try {
+    await runTransaction(db, async tx => {
+      const rs = await tx.get(roomRef(id));
+      if (!rs.exists()) return;
+      const r = rs.data();
+      if (r.round !== round || r.winner) return;
+      tx.update(roomRef(id), { winner: symbol });
+    });
+  } catch (e) { console.warn(e); }
+}
+
+async function rematch() {
+  if (!roomId || !roomData) return;
+  const id = roomId, expected = roomData.round;
+  try {
+    await runTransaction(db, async tx => {
+      const rs = await tx.get(roomRef(id));
+      if (!rs.exists()) return;
+      const r = rs.data();
+      if (r.round !== expected || r.status !== 'playing') return;
+      tx.update(roomRef(id), {
+        round: r.round + 1, hostSymbol: r.guestSymbol, guestSymbol: r.hostSymbol,
+        currentTurn: 'X', moveCount: 0, winner: null
+      });
+    });
+  } catch (e) { console.warn(e); }
+}
+
+/* ---------- presence ---------- */
+function heartbeat() {
+  if (!roomId) return;
+  const field = role === 'host' ? 'hostSeen' : role === 'guest' ? 'guestSeen' : 'specs.' + uid;
+  updateDoc(roomRef(roomId), { [field]: Date.now() }).catch(() => {});
+  checkPeers();
+}
+
+function checkPeers() {
+  if (!roomData || !roomId) return;
+  const now = Date.now(), r = roomData;
+  if (role === 'host' && r.status === 'playing' && now - (r.guestSeen || 0) > STALE_MS) {
+    updateDoc(roomRef(roomId), guestLeftPatch()).catch(() => {});
+  } else if (role === 'guest' && !peerGone && now - (r.hostSeen || 0) > STALE_MS) {
+    peerGone = true;
+    onOpponentLeft();
+  } else if (role === 'spectator' && !peerGone &&
+             now - (r.hostSeen || 0) > STALE_MS && now - (r.guestSeen || 0) > STALE_MS) {
+    peerGone = true;
+    onGameEnded();
+  }
+}
+
+function guestLeftPatch() {
+  return {
+    guestId: null, guestName: null, guestSeen: 0, status: 'waiting',
+    hostSymbol: 'X', guestSymbol: 'O', currentTurn: 'X', moveCount: 0,
+    winner: null, round: increment(1)
+  };
+}
+
+/* ---------- leaving ---------- */
+async function cleanupMoves(id) {
+  try {
+    const snap = await getDocs(collection(db, 'rooms', id, 'moves'));
+    let batch = writeBatch(db), n = 0;
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+      if (++n === 450) { await batch.commit(); batch = writeBatch(db); n = 0; }
+    }
+    if (n) await batch.commit();
+  } catch (e) { /* best effort */ }
+}
+
+async function leave() {
+  const id = roomId, r = role;
+  stopSession();
+  if (!id) return;
+  try {
+    if (r === 'host') { await deleteDoc(roomRef(id)); cleanupMoves(id); }
+    else if (r === 'guest') await updateDoc(roomRef(id), guestLeftPatch());
+    else if (r === 'spectator') await updateDoc(roomRef(id), { ['specs.' + uid]: deleteField() });
+  } catch (e) { /* room may already be gone */ }
+}
+
+window.addEventListener('pagehide', () => { leave(); });
+
+window.Net = { watchLobby, createRoom, joinRoom, spectate, leave, makeMove, reportWin, rematch };
 </script>
 </body>
 </html>

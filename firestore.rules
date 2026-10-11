@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /rooms/{roomId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.resource.data.hostId == request.auth.uid;
+
+      // host/guest can update; anyone can join an empty room; spectators may only touch "specs"
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.hostId ||
+        request.auth.uid == resource.data.guestId ||
+        resource.data.guestId == null ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['specs'])
+      );
+
+      // host can delete; anyone can clear a room whose host vanished 2+ minutes ago
+      allow delete: if request.auth != null && (
+        resource.data.hostId == request.auth.uid ||
+        resource.data.hostSeen < request.time.toMillis() - 120000
+      );
+
+      match /moves/{moveId} {
+        allow read, delete: if request.auth != null;
+        allow create: if request.auth != null && (
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId == request.auth.uid ||
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.guestId == request.auth.uid
+        );
+      }
+    }
+  }
+}
